@@ -5,11 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Lunchguide Stockholm</title>
     <style>
-        /* Grundläggande CSS för att se att allt fungerar */
         body {
             font-family: Arial, sans-serif;
             margin: 0;
             padding: 20px;
+            line-height: 1.6;
         }
         .container {
             max-width: 800px;
@@ -24,6 +24,21 @@
         .control-group {
             margin-bottom: 15px;
         }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        select, input[type="range"] {
+            width: 100%;
+            padding: 8px;
+            margin-bottom: 10px;
+        }
+        .buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
         button {
             padding: 10px 15px;
             background: #4285f4;
@@ -31,6 +46,10 @@
             border: none;
             border-radius: 4px;
             cursor: pointer;
+            flex: 1;
+        }
+        button:hover {
+            background: #3367d6;
         }
         .loading {
             display: none;
@@ -38,7 +57,10 @@
             padding: 20px;
         }
         .error {
-            color: red;
+            color: #d32f2f;
+            background: #fde7e7;
+            padding: 10px;
+            border-radius: 4px;
             margin-bottom: 15px;
             display: none;
         }
@@ -47,6 +69,28 @@
             padding: 15px;
             margin-bottom: 15px;
             border-radius: 4px;
+        }
+        .restaurant h3 {
+            margin-top: 0;
+            color: #202124;
+        }
+        .info-item {
+            margin-bottom: 8px;
+        }
+        .actions {
+            margin-top: 15px;
+        }
+        .actions a {
+            display: inline-block;
+            padding: 8px 12px;
+            background: #4285f4;
+            color: white;
+            text-decoration: none;
+            border-radius: 4px;
+            margin-right: 10px;
+        }
+        .actions a:hover {
+            background: #3367d6;
         }
     </style>
 </head>
@@ -111,7 +155,7 @@
 
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            // Kontrollera att alla element finns
+            // Elementreferenser
             const elements = {
                 area: document.getElementById('area'),
                 radius: document.getElementById('radius'),
@@ -127,73 +171,160 @@
                 errorMessage: document.getElementById('error-message')
             };
 
-            // Visa fel om något element saknas
+            // Kontrollera att alla element finns
             for (const [key, element] of Object.entries(elements)) {
                 if (!element) {
-                    console.error(`Element med ID ${key} hittades inte`);
-                    document.write(`<p style="color:red">Kritiskt fel: Element med ID ${key} hittades inte. Kontrollera HTML-koden.</p>`);
+                    showError(`Element med ID ${key} hittades inte`);
                     return;
                 }
             }
 
-            // Uppdatera värden för range-inputs
-            elements.radius.addEventListener('input', function() {
-                elements.radiusValue.textContent = this.value;
+            // Uppdatera range-värden
+            elements.radius.addEventListener('input', () => {
+                elements.radiusValue.textContent = elements.radius.value;
             });
 
-            elements.minRating.addEventListener('input', function() {
-                elements.minRatingValue.textContent = this.value;
+            elements.minRating.addEventListener('input', () => {
+                elements.minRatingValue.textContent = elements.minRating.value;
             });
 
-            elements.maxPrice.addEventListener('input', function() {
+            elements.maxPrice.addEventListener('input', () => {
                 const prices = ['1 ($)', '2 ($$)', '3 ($$$)', '4 ($$$$)'];
-                elements.maxPriceValue.textContent = `${this.value} (${prices[this.value - 1]})`;
+                elements.maxPriceValue.textContent = `${elements.maxPrice.value} (${prices[elements.maxPrice.value - 1]})`;
             });
 
-            // Trigger initial update
+            // Initial uppdatering
             elements.maxPrice.dispatchEvent(new Event('input'));
 
-            // Hantera klick på knappar
-            elements.searchBtn.addEventListener('click', function() {
-                searchRestaurants(false);
-            });
+            // Event listeners för knappar
+            elements.searchBtn.addEventListener('click', () => searchRestaurants(false));
+            elements.randomBtn.addEventListener('click', () => searchRestaurants(true));
 
-            elements.randomBtn.addEventListener('click', function() {
-                searchRestaurants(true);
-            });
-
-            function searchRestaurants(isRandom) {
-                elements.loading.style.display = 'block';
-                elements.resultsContent.innerHTML = '';
-                
-                // Simulera API-anrop
-                setTimeout(function() {
-                    elements.loading.style.display = 'none';
-                    
-                    // Mock data - ersätt med riktig API-implementering
-                    const mockRestaurants = [
-                        {
-                            name: 'Testrestaurang 1',
-                            vicinity: 'Testgatan 1, Stockholm',
-                            rating: 4.2,
-                            price_level: 2,
-                            place_id: 'test1',
-                            website: 'https://example.com'
-                        },
-                        {
-                            name: 'Testrestaurang 2',
-                            vicinity: 'Testgatan 2, Stockholm',
-                            rating: 3.8,
-                            price_level: 3,
-                            place_id: 'test2',
-                            website: 'https://example.com'
-                        }
-                    ];
-                    
-                    displayRestaurants(mockRestaurants, isRandom);
-                }, 1000);
+            // Visa felmeddelande
+            function showError(message) {
+                elements.errorMessage.textContent = message;
+                elements.errorMessage.style.display = 'block';
+                setTimeout(() => {
+                    elements.errorMessage.style.display = 'none';
+                }, 5000);
             }
 
+            // Huvudfunktion för att söka restauranger
+            async function searchRestaurants(isRandom) {
+                try {
+                    elements.loading.style.display = 'block';
+                    elements.resultsContent.innerHTML = '';
+                    
+                    const [lat, lng] = elements.area.value.split(',').map(Number);
+                    const radius = parseInt(elements.radius.value);
+                    const minRating = parseFloat(elements.minRating.value);
+                    const maxPrice = parseInt(elements.maxPrice.value);
+                    
+                    let restaurants = [];
+                    
+                    // Försök hämta riktig data först
+                    if (window.google && window.google.maps && window.google.maps.places) {
+                        restaurants = await getRealRestaurants(lat, lng, radius);
+                    } else {
+                        throw new Error('Google Maps API inte tillgängligt');
+                    }
+                    
+                    // Filtrera resultat
+                    const filtered = restaurants.filter(place => {
+                        const ratingOk = !place.rating || place.rating >= minRating;
+                        const priceOk = !place.price_level || place.price_level <= maxPrice;
+                        return ratingOk && priceOk;
+                    });
+                    
+                    if (isRandom && filtered.length > 0) {
+                        const randomIndex = Math.floor(Math.random() * filtered.length);
+                        const place = filtered[randomIndex];
+                        const details = await getPlaceDetails(place.place_id);
+                        displayRestaurants([details], true);
+                    } else {
+                        displayRestaurants(filtered, false);
+                    }
+                } catch (error) {
+                    console.error('Error searching restaurants:', error);
+                    // Fallback till mockdata om det inte går att hämta riktig data
+                    const mockData = getMockRestaurants();
+                    displayRestaurants(mockData, isRandom);
+                    showError('Kunde inte hämta restaurangdata. Visar exempeldata istället.');
+                } finally {
+                    elements.loading.style.display = 'none';
+                }
+            }
+
+            // Hämta riktiga restauranger från Google Places API
+            function getRealRestaurants(lat, lng, radius) {
+                return new Promise((resolve, reject) => {
+                    const service = new google.maps.places.PlacesService(document.createElement('div'));
+                    const location = new google.maps.LatLng(lat, lng);
+                    
+                    service.nearbySearch({
+                        location: location,
+                        radius: radius,
+                        type: 'restaurant',
+                        keyword: 'lunch'
+                    }, (results, status) => {
+                        if (status === google.maps.places.PlacesServiceStatus.OK) {
+                            resolve(results);
+                        } else {
+                            reject(new Error(`Places API error: ${status}`));
+                        }
+                    });
+                });
+            }
+
+            // Hämta detaljer för en specifik restaurang
+            function getPlaceDetails(placeId) {
+                return new Promise((resolve, reject) => {
+                    const service = new google.maps.places.PlacesService(document.createElement('div'));
+                    
+                    service.getDetails({
+                        placeId: placeId,
+                        fields: ['name', 'vicinity', 'rating', 'price_level', 'website', 'place_id']
+                    }, (place, status) => {
+                        if (status === google.maps.places.PlacesServiceStatus.OK) {
+                            resolve(place);
+                        } else {
+                            reject(new Error(`Places details error: ${status}`));
+                        }
+                    });
+                });
+            }
+
+            // Mockdata som fallback
+            function getMockRestaurants() {
+                return [
+                    {
+                        name: 'Restaurang Pelikan',
+                        vicinity: 'Blekingegatan 40, Stockholm',
+                        rating: 4.4,
+                        price_level: 3,
+                        website: 'https://pelikan.se',
+                        place_id: 'mock1'
+                    },
+                    {
+                        name: 'Kajsas Fisk',
+                        vicinity: 'Hötorgshallen, Stockholm',
+                        rating: 4.2,
+                        price_level: 2,
+                        website: 'https://kajsasfisk.se',
+                        place_id: 'mock2'
+                    },
+                    {
+                        name: 'Vapiano',
+                        vicinity: 'Regeringsgatan 28, Stockholm',
+                        rating: 3.8,
+                        price_level: 2,
+                        website: 'https://vapiano.se',
+                        place_id: 'mock3'
+                    }
+                ];
+            }
+
+            // Visa restauranger i UI
             function displayRestaurants(restaurants, isRandom) {
                 if (restaurants.length === 0) {
                     elements.resultsContent.innerHTML = '<p>Inga restauranger hittades med de valda filtren.</p>';
@@ -201,14 +332,24 @@
                 }
                 
                 if (isRandom) {
-                    const restaurant = restaurants[Math.floor(Math.random() * restaurants.length)];
+                    const restaurant = restaurants[0];
                     elements.resultsContent.innerHTML = `
                         <div class="restaurant">
-                            <h2>Dagens lunchval: ${restaurant.name}</h2>
-                            <p><strong>Adress:</strong> ${restaurant.vicinity}</p>
-                            <p><strong>Betyg:</strong> ${restaurant.rating || 'Inget betyg'}/5</p>
-                            <p><strong>Prisnivå:</strong> ${restaurant.price_level ? '$$$'.slice(0, restaurant.price_level) : 'Okänd'}</p>
-                            <a href="https://www.google.com/maps?q=place_id:${restaurant.place_id}" target="_blank">Visa på karta</a>
+                            <h2>Dagens lunchval!</h2>
+                            <h3>${restaurant.name}</h3>
+                            <div class="info-item">
+                                <strong>Adress:</strong> ${restaurant.vicinity || 'Okänd adress'}
+                            </div>
+                            <div class="info-item">
+                                <strong>Betyg:</strong> ${restaurant.rating || 'Inget betyg'}/5
+                            </div>
+                            <div class="info-item">
+                                <strong>Prisnivå:</strong> ${restaurant.price_level ? '$$$'.slice(0, restaurant.price_level) : 'Okänd'}
+                            </div>
+                            <div class="actions">
+                                <a href="https://www.google.com/maps?q=place_id:${restaurant.place_id}" target="_blank">Visa på karta</a>
+                                ${restaurant.website ? `<a href="${restaurant.website}" target="_blank">Besök hemsida</a>` : ''}
+                            </div>
                         </div>
                     `;
                 } else {
@@ -217,10 +358,19 @@
                         html += `
                             <div class="restaurant">
                                 <h3>${restaurant.name}</h3>
-                                <p><strong>Adress:</strong> ${restaurant.vicinity}</p>
-                                <p><strong>Betyg:</strong> ${restaurant.rating || 'Inget betyg'}/5</p>
-                                <p><strong>Prisnivå:</strong> ${restaurant.price_level ? '$$$'.slice(0, restaurant.price_level) : 'Okänd'}</p>
-                                <a href="https://www.google.com/maps?q=place_id:${restaurant.place_id}" target="_blank">Visa på karta</a>
+                                <div class="info-item">
+                                    <strong>Adress:</strong> ${restaurant.vicinity || 'Okänd adress'}
+                                </div>
+                                <div class="info-item">
+                                    <strong>Betyg:</strong> ${restaurant.rating || 'Inget betyg'}/5
+                                </div>
+                                <div class="info-item">
+                                    <strong>Prisnivå:</strong> ${restaurant.price_level ? '$$$'.slice(0, restaurant.price_level) : 'Okänd'}
+                                </div>
+                                <div class="actions">
+                                    <a href="https://www.google.com/maps?q=place_id:${restaurant.place_id}" target="_blank">Visa på karta</a>
+                                    ${restaurant.website ? `<a href="${restaurant.website}" target="_blank">Besök hemsida</a>` : ''}
+                                </div>
                             </div>
                         `;
                     });
@@ -228,6 +378,14 @@
                 }
             }
         });
+
+        // Initiera Google Maps API
+        function initMap() {
+            console.log('Google Maps API loaded');
+        }
     </script>
+    
+    <!-- Ladda Google Maps API -->
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCSj344Kz756OVuhwq4btDf_6ymMPTqYvY&libraries=places&callback=initMap" async defer></script>
 </body>
 </html>
