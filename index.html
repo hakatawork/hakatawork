@@ -4,117 +4,152 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Lunchguide Stockholm</title>
-    <link rel="icon" href="data:,"> <!-- Fix för favicon-fel -->
+    <link rel="icon" href="data:,">
     <style>
-        /* Behåll din befintliga CSS här */
+        /* Din befintliga CSS här */
     </style>
 </head>
 <body>
-    <!-- Behåll din befintliga HTML-struktur här -->
+    <header>
+        <h1>Lunchguide Stockholm</h1>
+        <p>Hitta perfekt lunchrestaurang i innerstaden</p>
+    </header>
+   
+    <div class="container">
+        <div class="controls">
+            <div class="error" id="error-message"></div>
+           
+            <div class="control-group">
+                <label for="area">Område:</label>
+                <select id="area">
+                    <option value="59.3326,18.0632">Sergels torg</option>
+                    <option value="59.3258,18.0706">Gamla stan</option>
+                    <option value="59.3389,18.0883">Östermalm</option>
+                    <option value="59.3307,18.0415">Kungsholmen</option>
+                    <option value="59.3151,18.0689">Södermalm</option>
+                </select>
+            </div>
+           
+            <div class="control-group">
+                <label for="radius">
+                    Sökområde (meter):
+                    <span class="range-value" id="radius-value">500</span>
+                </label>
+                <input type="range" id="radius" min="100" max="2000" step="100" value="500">
+            </div>
+           
+            <div class="control-group">
+                <label for="min-rating">
+                    Minsta betyg:
+                    <span class="range-value" id="min-rating-value">3.0</span>
+                </label>
+                <input type="range" id="min-rating" min="0" max="5" step="0.1" value="3.0">
+            </div>
+           
+            <div class="control-group">
+                <label for="max-price">
+                    Max prisnivå:
+                    <span class="range-value" id="max-price-value">3 ($$$)</span>
+                </label>
+                <input type="range" id="max-price" min="1" max="4" step="1" value="3">
+            </div>
+           
+            <div class="buttons">
+                <button id="search-btn">Sök restauranger</button>
+                <button id="random-btn" class="secondary">Slumpa restaurang</button>
+            </div>
+        </div>
+       
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p>Hämtar restauranger...</p>
+        </div>
+       
+        <div class="results" id="results">
+            <div id="results-content">
+                <p>Välj inställningar och klicka på "Sök restauranger" eller "Slumpa restaurang" för att börja.</p>
+            </div>
+        </div>
+    </div>
 
-    <!-- Flytta script-taggen hit till slutet av body -->
     <script>
-        // Logger-klass för centraliserad loggning
-        class Logger {
-            constructor() {
-                this.logLevels = {
-                    DEBUG: 0,
-                    INFO: 1,
-                    WARN: 2,
-                    ERROR: 3
-                };
-                this.currentLogLevel = this.logLevels.DEBUG;
-            }
-
-            log(level, message, data = null) {
-                if (level >= this.currentLogLevel) {
-                    const timestamp = new Date().toISOString();
-                    const levelStr = Object.keys(this.logLevels).find(key => this.logLevels[key] === level);
-                    
-                    console.log(`[${timestamp}] [${levelStr}] ${message}`);
-                    if (data) {
-                        console.log(data);
-                    }
-                }
-            }
-
-            debug(message, data = null) {
-                this.log(this.logLevels.DEBUG, message, data);
-            }
-
-            info(message, data = null) {
-                this.log(this.logLevels.INFO, message, data);
-            }
-
-            warn(message, data = null) {
-                this.log(this.logLevels.WARN, message, data);
-            }
-
-            error(message, data = null) {
-                this.log(this.logLevels.ERROR, message, data);
-            }
-        }
-
-        // App-klass med förbättrad felhantering
         class LunchGuideApp {
             constructor() {
-                this.logger = new Logger();
-                this.initialize();
-            }
-
-            initialize() {
+                this.logger = {
+                    info: (msg) => console.log('[INFO]', msg),
+                    error: (msg, err) => console.error('[ERROR]', msg, err)
+                };
+                
                 try {
+                    this.validateDOM();
                     this.initElements();
                     this.bindEvents();
                     this.initValues();
                     this.logger.info('App initialized successfully');
                 } catch (error) {
                     this.logger.error('Initialization failed', error);
-                    this.showCriticalError('Ett kritiskt fel uppstod vid initiering av applikationen');
+                    this.showCriticalError(error.message);
+                }
+            }
+
+            validateDOM() {
+                const requiredElements = [
+                    'area', 'radius', 'radius-value', 
+                    'min-rating', 'min-rating-value',
+                    'max-price', 'max-price-value',
+                    'search-btn', 'random-btn',
+                    'loading', 'results-content',
+                    'error-message'
+                ];
+
+                const missingElements = requiredElements.filter(id => !document.getElementById(id));
+                
+                if (missingElements.length > 0) {
+                    throw new Error(`Saknade element: ${missingElements.join(', ')}`);
                 }
             }
 
             initElements() {
-                this.areaSelect = document.getElementById('area');
-                this.radiusSlider = document.getElementById('radius');
-                this.radiusValue = document.getElementById('radius-value');
-                this.minRatingSlider = document.getElementById('min-rating');
-                this.minRatingValue = document.getElementById('min-rating-value');
-                this.maxPriceSlider = document.getElementById('max-price');
-                this.maxPriceValue = document.getElementById('max-price-value');
-                this.searchBtn = document.getElementById('search-btn');
-                this.randomBtn = document.getElementById('random-btn');
-                this.loadingDiv = document.getElementById('loading');
-                this.resultsContent = document.getElementById('results-content');
-                this.errorMessage = document.getElementById('error-message');
-
-                if (!this.areaSelect || !this.radiusSlider || !this.searchBtn) {
-                    throw new Error('Kritiska DOM-element saknas');
-                }
-
-                this.logger.debug('DOM elements initialized');
+                this.elements = {
+                    area: document.getElementById('area'),
+                    radius: document.getElementById('radius'),
+                    radiusValue: document.getElementById('radius-value'),
+                    minRating: document.getElementById('min-rating'),
+                    minRatingValue: document.getElementById('min-rating-value'),
+                    maxPrice: document.getElementById('max-price'),
+                    maxPriceValue: document.getElementById('max-price-value'),
+                    searchBtn: document.getElementById('search-btn'),
+                    randomBtn: document.getElementById('random-btn'),
+                    loading: document.getElementById('loading'),
+                    resultsContent: document.getElementById('results-content'),
+                    errorMessage: document.getElementById('error-message')
+                };
             }
 
             bindEvents() {
-                try {
-                    this.radiusSlider.addEventListener('input', () => this.updateRadiusValue());
-                    this.minRatingSlider.addEventListener('input', () => this.updateMinRatingValue());
-                    this.maxPriceSlider.addEventListener('input', () => this.updateMaxPriceValue());
-                    this.searchBtn.addEventListener('click', () => this.searchRestaurants(false));
-                    this.randomBtn.addEventListener('click', () => this.searchRestaurants(true));
-                    this.logger.debug('Event listeners bound');
-                } catch (error) {
-                    this.logger.error('Failed to bind event listeners', error);
-                    throw new Error('Kunde inte binda händelsehanterare');
-                }
+                this.elements.radius.addEventListener('input', () => this.updateRadiusValue());
+                this.elements.minRating.addEventListener('input', () => this.updateMinRatingValue());
+                this.elements.maxPrice.addEventListener('input', () => this.updateMaxPriceValue());
+                this.elements.searchBtn.addEventListener('click', () => this.searchRestaurants(false));
+                this.elements.randomBtn.addEventListener('click', () => this.searchRestaurants(true));
             }
 
             initValues() {
-                try {
-                    this.updateMaxPriceValue();
-                } catch (error) {
-                    this.logger.error('Failed to initialize values', error);
-                }
+                this.updateMaxPriceValue();
+            }
+
+            updateRadiusValue() {
+                this.elements.radiusValue.textContent = this.elements.radius.value;
+            }
+
+            updateMinRatingValue() {
+                this.elements.minRatingValue.textContent = this.elements.minRating.value;
+            }
+
+            updateMaxPriceValue() {
+                const prices = ['1 ($)', '2 ($$)', '3 ($$$)', '4 ($$$$)'];
+                this.elements.maxPriceValue.textContent = 
+                    `${this.elements.maxPrice.value} (${prices[this.elements.maxPrice.value - 1]})`;
             }
 
             showCriticalError(message) {
@@ -132,37 +167,13 @@
                 document.body.prepend(errorContainer);
             }
 
-            // Resten av dina metoder här (updateRadiusValue, searchRestaurants etc.)
-            // ... (behåll samma implementering som tidigare för dessa metoder)
+            // Ytterligare metoder kommer här...
         }
 
-        // Vänta på att DOM är redo innan vi initierar appen
+        // Starta appen när allt är laddat
         document.addEventListener('DOMContentLoaded', () => {
-            window.app = new LunchGuideApp();
+            new LunchGuideApp();
         });
-
-        // Hantera Google Maps API-fel
-        window.gm_authFailure = function() {
-            const errorContainer = document.createElement('div');
-            errorContainer.style.position = 'fixed';
-            errorContainer.style.top = '0';
-            errorContainer.style.left = '0';
-            errorContainer.style.right = '0';
-            errorContainer.style.padding = '20px';
-            errorContainer.style.backgroundColor = '#e74c3c';
-            errorContainer.style.color = 'white';
-            errorContainer.style.zIndex = '1000';
-            errorContainer.style.textAlign = 'center';
-            errorContainer.textContent = 'Fel vid anslutning till Google Maps. Kontrollera din internetanslutning.';
-            document.body.prepend(errorContainer);
-        };
-    </script>
-
-    <!-- Google Maps API -->
-    <script
-        src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCSj344Kz756OVuhwq4btDf_6ymMPTqYvY&libraries=places&callback=initApp"
-        async defer
-        onerror="window.gm_authFailure()">
     </script>
 </body>
 </html>
