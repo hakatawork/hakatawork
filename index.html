@@ -4,244 +4,229 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Lunchguide Stockholm</title>
-    <link rel="icon" href="data:,">
     <style>
-        /* Din befintliga CSS här */
+        /* Grundläggande CSS för att se att allt fungerar */
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .controls {
+            background: #f5f5f5;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        .control-group {
+            margin-bottom: 15px;
+        }
+        button {
+            padding: 10px 15px;
+            background: #4285f4;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+        .error {
+            color: red;
+            margin-bottom: 15px;
+            display: none;
+        }
+        .restaurant {
+            border: 1px solid #ddd;
+            padding: 15px;
+            margin-bottom: 15px;
+            border-radius: 4px;
+        }
     </style>
 </head>
 <body>
-    <!-- Din befintliga HTML här -->
+    <div class="container">
+        <h1>Lunchguide Stockholm</h1>
+        
+        <div class="controls">
+            <div class="error" id="error-message"></div>
+            
+            <div class="control-group">
+                <label for="area">Område:</label>
+                <select id="area">
+                    <option value="59.3326,18.0632">Sergels torg</option>
+                    <option value="59.3258,18.0706">Gamla stan</option>
+                    <option value="59.3389,18.0883">Östermalm</option>
+                    <option value="59.3307,18.0415">Kungsholmen</option>
+                    <option value="59.3151,18.0689">Södermalm</option>
+                </select>
+            </div>
+            
+            <div class="control-group">
+                <label for="radius">
+                    Sökområde (meter):
+                    <span class="range-value" id="radius-value">500</span>
+                </label>
+                <input type="range" id="radius" min="100" max="2000" step="100" value="500">
+            </div>
+            
+            <div class="control-group">
+                <label for="min-rating">
+                    Minsta betyg:
+                    <span class="range-value" id="min-rating-value">3.0</span>
+                </label>
+                <input type="range" id="min-rating" min="0" max="5" step="0.1" value="3.0">
+            </div>
+            
+            <div class="control-group">
+                <label for="max-price">
+                    Max prisnivå:
+                    <span class="range-value" id="max-price-value">3 ($$$)</span>
+                </label>
+                <input type="range" id="max-price" min="1" max="4" step="1" value="3">
+            </div>
+            
+            <div class="buttons">
+                <button id="search-btn">Sök restauranger</button>
+                <button id="random-btn">Slumpa restaurang</button>
+            </div>
+        </div>
+        
+        <div class="loading" id="loading">
+            <p>Hämtar restauranger...</p>
+        </div>
+        
+        <div class="results" id="results">
+            <div id="results-content">
+                <p>Välj inställningar och klicka på "Sök restauranger" eller "Slumpa restaurang" för att börja.</p>
+            </div>
+        </div>
+    </div>
 
     <script>
-        class LunchGuideApp {
-            constructor() {
-                this.logger = {
-                    info: (msg) => console.log('[INFO]', msg),
-                    error: (msg, err) => console.error('[ERROR]', msg, err)
-                };
-                
-                try {
-                    this.validateDOM();
-                    this.initElements();
-                    this.bindEvents();
-                    this.initValues();
-                    this.logger.info('App initialized successfully');
-                } catch (error) {
-                    this.logger.error('Initialization failed', error);
-                    this.showCriticalError(error.message);
+        document.addEventListener('DOMContentLoaded', function() {
+            // Kontrollera att alla element finns
+            const elements = {
+                area: document.getElementById('area'),
+                radius: document.getElementById('radius'),
+                radiusValue: document.getElementById('radius-value'),
+                minRating: document.getElementById('min-rating'),
+                minRatingValue: document.getElementById('min-rating-value'),
+                maxPrice: document.getElementById('max-price'),
+                maxPriceValue: document.getElementById('max-price-value'),
+                searchBtn: document.getElementById('search-btn'),
+                randomBtn: document.getElementById('random-btn'),
+                loading: document.getElementById('loading'),
+                resultsContent: document.getElementById('results-content'),
+                errorMessage: document.getElementById('error-message')
+            };
+
+            // Visa fel om något element saknas
+            for (const [key, element] of Object.entries(elements)) {
+                if (!element) {
+                    console.error(`Element med ID ${key} hittades inte`);
+                    document.write(`<p style="color:red">Kritiskt fel: Element med ID ${key} hittades inte. Kontrollera HTML-koden.</p>`);
+                    return;
                 }
             }
 
-            validateDOM() {
-                const requiredElements = [
-                    'area', 'radius', 'radius-value', 
-                    'min-rating', 'min-rating-value',
-                    'max-price', 'max-price-value',
-                    'search-btn', 'random-btn',
-                    'loading', 'results-content',
-                    'error-message'
-                ];
+            // Uppdatera värden för range-inputs
+            elements.radius.addEventListener('input', function() {
+                elements.radiusValue.textContent = this.value;
+            });
 
-                const missingElements = requiredElements.filter(id => !document.getElementById(id));
-                
-                if (missingElements.length > 0) {
-                    throw new Error(`Saknade element: ${missingElements.join(', ')}`);
-                }
-            }
+            elements.minRating.addEventListener('input', function() {
+                elements.minRatingValue.textContent = this.value;
+            });
 
-            initElements() {
-                this.elements = {
-                    area: document.getElementById('area'),
-                    radius: document.getElementById('radius'),
-                    radiusValue: document.getElementById('radius-value'),
-                    minRating: document.getElementById('min-rating'),
-                    minRatingValue: document.getElementById('min-rating-value'),
-                    maxPrice: document.getElementById('max-price'),
-                    maxPriceValue: document.getElementById('max-price-value'),
-                    searchBtn: document.getElementById('search-btn'),
-                    randomBtn: document.getElementById('random-btn'),
-                    loading: document.getElementById('loading'),
-                    resultsContent: document.getElementById('results-content'),
-                    errorMessage: document.getElementById('error-message')
-                };
-            }
-
-            bindEvents() {
-                this.elements.radius.addEventListener('input', () => this.updateRadiusValue());
-                this.elements.minRating.addEventListener('input', () => this.updateMinRatingValue());
-                this.elements.maxPrice.addEventListener('input', () => this.updateMaxPriceValue());
-                this.elements.searchBtn.addEventListener('click', () => this.searchRestaurants(false));
-                this.elements.randomBtn.addEventListener('click', () => this.searchRestaurants(true));
-            }
-
-            initValues() {
-                this.updateMaxPriceValue();
-            }
-
-            updateRadiusValue() {
-                this.elements.radiusValue.textContent = this.elements.radius.value;
-            }
-
-            updateMinRatingValue() {
-                this.elements.minRatingValue.textContent = this.elements.minRating.value;
-            }
-
-            updateMaxPriceValue() {
+            elements.maxPrice.addEventListener('input', function() {
                 const prices = ['1 ($)', '2 ($$)', '3 ($$$)', '4 ($$$$)'];
-                this.elements.maxPriceValue.textContent = 
-                    `${this.elements.maxPrice.value} (${prices[this.elements.maxPrice.value - 1]})`;
+                elements.maxPriceValue.textContent = `${this.value} (${prices[this.value - 1]})`;
+            });
+
+            // Trigger initial update
+            elements.maxPrice.dispatchEvent(new Event('input'));
+
+            // Hantera klick på knappar
+            elements.searchBtn.addEventListener('click', function() {
+                searchRestaurants(false);
+            });
+
+            elements.randomBtn.addEventListener('click', function() {
+                searchRestaurants(true);
+            });
+
+            function searchRestaurants(isRandom) {
+                elements.loading.style.display = 'block';
+                elements.resultsContent.innerHTML = '';
+                
+                // Simulera API-anrop
+                setTimeout(function() {
+                    elements.loading.style.display = 'none';
+                    
+                    // Mock data - ersätt med riktig API-implementering
+                    const mockRestaurants = [
+                        {
+                            name: 'Testrestaurang 1',
+                            vicinity: 'Testgatan 1, Stockholm',
+                            rating: 4.2,
+                            price_level: 2,
+                            place_id: 'test1',
+                            website: 'https://example.com'
+                        },
+                        {
+                            name: 'Testrestaurang 2',
+                            vicinity: 'Testgatan 2, Stockholm',
+                            rating: 3.8,
+                            price_level: 3,
+                            place_id: 'test2',
+                            website: 'https://example.com'
+                        }
+                    ];
+                    
+                    displayRestaurants(mockRestaurants, isRandom);
+                }, 1000);
             }
 
-            showCriticalError(message) {
-                const errorContainer = document.createElement('div');
-                errorContainer.style.position = 'fixed';
-                errorContainer.style.top = '0';
-                errorContainer.style.left = '0';
-                errorContainer.style.right = '0';
-                errorContainer.style.padding = '20px';
-                errorContainer.style.backgroundColor = '#e74c3c';
-                errorContainer.style.color = 'white';
-                errorContainer.style.zIndex = '1000';
-                errorContainer.style.textAlign = 'center';
-                errorContainer.textContent = message;
-                document.body.prepend(errorContainer);
-            }
-
-            // Lägg till de saknade metoderna här:
-            searchRestaurants(isRandom = false) {
-                try {
-                    this.logger.info(`Starting restaurant search (random: ${isRandom})`);
-                    this.elements.loading.style.display = 'block';
-                    this.elements.resultsContent.innerHTML = '';
-
-                    // Simulera API-anrop (ersätt med riktig Google Maps API-implementering)
-                    setTimeout(() => {
-                        this.elements.loading.style.display = 'none';
-                        this.displayRestaurants(this.getMockRestaurants(), isRandom);
-                    }, 1500);
-                } catch (error) {
-                    this.elements.loading.style.display = 'none';
-                    this.logger.error('Search failed', error);
-                    this.showError('Ett fel uppstod vid sökning av restauranger');
+            function displayRestaurants(restaurants, isRandom) {
+                if (restaurants.length === 0) {
+                    elements.resultsContent.innerHTML = '<p>Inga restauranger hittades med de valda filtren.</p>';
+                    return;
                 }
-            }
-
-            getMockRestaurants() {
-                return [
-                    {
-                        name: 'Testrestaurang 1',
-                        vicinity: 'Testgatan 1, Stockholm',
-                        rating: 4.2,
-                        price_level: 2,
-                        opening_hours: { weekday_text: ['Måndag: 11-22', 'Tisdag: 11-22'] },
-                        website: 'https://example.com',
-                        place_id: 'test1'
-                    },
-                    {
-                        name: 'Testrestaurang 2',
-                        vicinity: 'Testgatan 2, Stockholm',
-                        rating: 3.8,
-                        price_level: 3,
-                        opening_hours: { weekday_text: ['Måndag: 10-21', 'Tisdag: 10-21'] },
-                        website: 'https://example.com',
-                        place_id: 'test2'
-                    }
-                ];
-            }
-
-            displayRestaurants(restaurants, isRandom = false) {
-                try {
-                    if (restaurants.length === 0) {
-                        this.elements.resultsContent.innerHTML = '<p>Inga restauranger hittades med de valda filtren.</p>';
-                        return;
-                    }
-
-                    if (isRandom) {
-                        const restaurant = restaurants[0];
-                        this.elements.resultsContent.innerHTML = `
-                            <h2>Dagens lunchval!</h2>
+                
+                if (isRandom) {
+                    const restaurant = restaurants[Math.floor(Math.random() * restaurants.length)];
+                    elements.resultsContent.innerHTML = `
+                        <div class="restaurant">
+                            <h2>Dagens lunchval: ${restaurant.name}</h2>
+                            <p><strong>Adress:</strong> ${restaurant.vicinity}</p>
+                            <p><strong>Betyg:</strong> ${restaurant.rating || 'Inget betyg'}/5</p>
+                            <p><strong>Prisnivå:</strong> ${restaurant.price_level ? '$$$'.slice(0, restaurant.price_level) : 'Okänd'}</p>
+                            <a href="https://www.google.com/maps?q=place_id:${restaurant.place_id}" target="_blank">Visa på karta</a>
+                        </div>
+                    `;
+                } else {
+                    let html = '<h2>Hittade restauranger:</h2>';
+                    restaurants.forEach(restaurant => {
+                        html += `
                             <div class="restaurant">
                                 <h3>${restaurant.name}</h3>
-                                <div class="restaurant-info">
-                                    <div class="info-item">
-                                        <span class="info-label">Adress:</span> ${restaurant.vicinity || 'Okänd adress'}
-                                    </div>
-                                    <div class="info-item">
-                                        <span class="info-label">Betyg:</span> ${restaurant.rating || 'Inget betyg'}/5
-                                    </div>
-                                    <div class="info-item">
-                                        <span class="info-label">Prisnivå:</span> ${this.getPriceLevelString(restaurant.price_level)}
-                                    </div>
-                                </div>
-                                ${restaurant.opening_hours ? `
-                                <div class="opening-hours">
-                                    <h4>Öppettider:</h4>
-                                    <ul>
-                                        ${this.getOpeningHours(restaurant.opening_hours).map(time => `<li>${time}</li>`).join('')}
-                                    </ul>
-                                </div>
-                                ` : ''}
-                                <div class="actions">
-                                    <a href="https://www.google.com/maps/place/?q=place_id:${restaurant.place_id}" target="_blank">Visa på karta</a>
-                                    ${restaurant.website ? `<a href="${restaurant.website}" target="_blank">Besök hemsida</a>` : ''}
-                                </div>
+                                <p><strong>Adress:</strong> ${restaurant.vicinity}</p>
+                                <p><strong>Betyg:</strong> ${restaurant.rating || 'Inget betyg'}/5</p>
+                                <p><strong>Prisnivå:</strong> ${restaurant.price_level ? '$$$'.slice(0, restaurant.price_level) : 'Okänd'}</p>
+                                <a href="https://www.google.com/maps?q=place_id:${restaurant.place_id}" target="_blank">Visa på karta</a>
                             </div>
                         `;
-                    } else {
-                        this.elements.resultsContent.innerHTML = `
-                            <h2>Hittade ${restaurants.length} restauranger:</h2>
-                            ${restaurants.map(restaurant => `
-                                <div class="restaurant">
-                                    <h3>${restaurant.name}</h3>
-                                    <div class="restaurant-info">
-                                        <div class="info-item">
-                                            <span class="info-label">Adress:</span> ${restaurant.vicinity || 'Okänd adress'}
-                                        </div>
-                                        <div class="info-item">
-                                            <span class="info-label">Betyg:</span> ${restaurant.rating || 'Inget betyg'}/5
-                                        </div>
-                                        <div class="info-item">
-                                            <span class="info-label">Prisnivå:</span> ${this.getPriceLevelString(restaurant.price_level)}
-                                        </div>
-                                    </div>
-                                    <div class="actions">
-                                        <a href="https://www.google.com/maps/place/?q=place_id:${restaurant.place_id}" target="_blank">Visa på karta</a>
-                                        ${restaurant.website ? `<a href="${restaurant.website}" target="_blank">Besök hemsida</a>` : ''}
-                                    </div>
-                                </div>
-                            `).join('')}
-                        `;
-                    }
-                } catch (error) {
-                    this.logger.error('Failed to display restaurants', error);
-                    this.showError('Ett fel uppstod vid visning av restauranger');
+                    });
+                    elements.resultsContent.innerHTML = html;
                 }
             }
-
-            getPriceLevelString(priceLevel) {
-                if (!priceLevel) return 'Okänd prisnivå';
-                return ['Billig ($)', 'Mellan ($$)', 'Dyr ($$$)', 'Lyx ($$$$)'][priceLevel - 1] || 'Okänd prisnivå';
-            }
-
-            getOpeningHours(openingHours) {
-                if (!openingHours || !openingHours.weekday_text) {
-                    return ['Okända öppettider'];
-                }
-                return openingHours.weekday_text;
-            }
-
-            showError(message) {
-                this.elements.errorMessage.textContent = message;
-                this.elements.errorMessage.style.display = 'block';
-                setTimeout(() => {
-                    this.elements.errorMessage.style.display = 'none';
-                }, 5000);
-            }
-        }
-
-        // Starta appen när allt är laddat
-        document.addEventListener('DOMContentLoaded', () => {
-            new LunchGuideApp();
         });
     </script>
 </body>
