@@ -92,11 +92,25 @@
         .actions a:hover {
             background: #3367d6;
         }
+        .api-key-form {
+            background: #e8f0fe;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>Lunchguide Stockholm</h1>
+        
+        <div class="api-key-form" id="api-key-form">
+            <h3>Google Maps API-nyckel</h3>
+            <p>För bästa resultat, ange din Google Maps API-nyckel:</p>
+            <input type="text" id="api-key-input" placeholder="Ange din API-nyckel här" style="width: 100%; padding: 8px; margin-bottom: 10px;">
+            <button id="save-api-key">Spara nyckel</button>
+            <p><small>Nyckeln sparas i en cookie och används endast för att hämta restaurangdata.</small></p>
+        </div>
         
         <div class="controls">
             <div class="error" id="error-message"></div>
@@ -104,6 +118,7 @@
             <div class="control-group">
                 <label for="area">Område:</label>
                 <select id="area">
+                    <option value="59.33149337768555,18.05849266052246">Kontoret</option>
                     <option value="59.3326,18.0632">Sergels torg</option>
                     <option value="59.3258,18.0706">Gamla stan</option>
                     <option value="59.3389,18.0883">Östermalm</option>
@@ -157,6 +172,9 @@
         document.addEventListener('DOMContentLoaded', function() {
             // Elementreferenser
             const elements = {
+                apiKeyForm: document.getElementById('api-key-form'),
+                apiKeyInput: document.getElementById('api-key-input'),
+                saveApiKeyBtn: document.getElementById('save-api-key'),
                 area: document.getElementById('area'),
                 radius: document.getElementById('radius'),
                 radiusValue: document.getElementById('radius-value'),
@@ -177,6 +195,66 @@
                     showError(`Element med ID ${key} hittades inte`);
                     return;
                 }
+            }
+
+            // Hämta API-nyckel från cookie
+            function getApiKeyFromCookie() {
+                const cookies = document.cookie.split(';');
+                for (const cookie of cookies) {
+                    const [name, value] = cookie.trim().split('=');
+                    if (name === 'google_maps_api_key') {
+                        return decodeURIComponent(value);
+                    }
+                }
+                return null;
+            }
+
+            // Spara API-nyckel i cookie
+            function saveApiKeyToCookie(key) {
+                const date = new Date();
+                date.setTime(date.getTime() + (30 * 24 * 60 * 60 * 1000)); // 30 dagar
+                document.cookie = `google_maps_api_key=${encodeURIComponent(key)}; expires=${date.toUTCString()}; path=/`;
+            }
+
+            // Initiera API-nyckel
+            const savedApiKey = getApiKeyFromCookie();
+            if (savedApiKey) {
+                elements.apiKeyInput.value = savedApiKey;
+                elements.apiKeyForm.style.display = 'none';
+            }
+
+            // Event listener för att spara API-nyckel
+            elements.saveApiKeyBtn.addEventListener('click', function() {
+                const apiKey = elements.apiKeyInput.value.trim();
+                if (apiKey) {
+                    saveApiKeyToCookie(apiKey);
+                    elements.apiKeyForm.style.display = 'none';
+                    showMessage('API-nyckel sparad!');
+                } else {
+                    showError('Vänligen ange en giltig API-nyckel');
+                }
+            });
+
+            // Visa meddelande
+            function showMessage(message) {
+                elements.errorMessage.textContent = message;
+                elements.errorMessage.style.color = '#388e3c';
+                elements.errorMessage.style.backgroundColor = '#e8f5e9';
+                elements.errorMessage.style.display = 'block';
+                setTimeout(() => {
+                    elements.errorMessage.style.display = 'none';
+                }, 3000);
+            }
+
+            // Visa felmeddelande
+            function showError(message) {
+                elements.errorMessage.textContent = message;
+                elements.errorMessage.style.color = '#d32f2f';
+                elements.errorMessage.style.backgroundColor = '#fde7e7';
+                elements.errorMessage.style.display = 'block';
+                setTimeout(() => {
+                    elements.errorMessage.style.display = 'none';
+                }, 5000);
             }
 
             // Uppdatera range-värden
@@ -200,15 +278,6 @@
             elements.searchBtn.addEventListener('click', () => searchRestaurants(false));
             elements.randomBtn.addEventListener('click', () => searchRestaurants(true));
 
-            // Visa felmeddelande
-            function showError(message) {
-                elements.errorMessage.textContent = message;
-                elements.errorMessage.style.display = 'block';
-                setTimeout(() => {
-                    elements.errorMessage.style.display = 'none';
-                }, 5000);
-            }
-
             // Huvudfunktion för att söka restauranger
             async function searchRestaurants(isRandom) {
                 try {
@@ -221,12 +290,20 @@
                     const maxPrice = parseInt(elements.maxPrice.value);
                     
                     let restaurants = [];
+                    const apiKey = getApiKeyFromCookie();
                     
-                    // Försök hämta riktig data först
-                    if (window.google && window.google.maps && window.google.maps.places) {
+                    // Försök hämta riktig data om API-nyckel finns
+                    if (apiKey && window.google && window.google.maps && window.google.maps.places) {
                         restaurants = await getRealRestaurants(lat, lng, radius);
+                    } else if (!apiKey) {
+                        showError('Ingen API-nyckel hittades. Visar exempeldata.');
                     } else {
                         throw new Error('Google Maps API inte tillgängligt');
+                    }
+                    
+                    // Om ingen riktig data hittades, använd mockdata
+                    if (restaurants.length === 0) {
+                        throw new Error('Inga restauranger hittades via API');
                     }
                     
                     // Filtrera resultat
@@ -246,10 +323,12 @@
                     }
                 } catch (error) {
                     console.error('Error searching restaurants:', error);
-                    // Fallback till mockdata om det inte går att hämta riktig data
+                    // Fallback till mockdata
                     const mockData = getMockRestaurants();
                     displayRestaurants(mockData, isRandom);
-                    showError('Kunde inte hämta restaurangdata. Visar exempeldata istället.');
+                    if (!getApiKeyFromCookie()) {
+                        elements.apiKeyForm.style.display = 'block';
+                    }
                 } finally {
                     elements.loading.style.display = 'none';
                 }
@@ -268,7 +347,7 @@
                         keyword: 'lunch'
                     }, (results, status) => {
                         if (status === google.maps.places.PlacesServiceStatus.OK) {
-                            resolve(results);
+                            resolve(results || []);
                         } else {
                             reject(new Error(`Places API error: ${status}`));
                         }
@@ -298,27 +377,27 @@
             function getMockRestaurants() {
                 return [
                     {
-                        name: 'Restaurang Pelikan',
-                        vicinity: 'Blekingegatan 40, Stockholm',
-                        rating: 4.4,
-                        price_level: 3,
-                        website: 'https://pelikan.se',
+                        name: 'Restaurang Kontoret Nära',
+                        vicinity: 'Nära kontoret, Stockholm',
+                        rating: 4.5,
+                        price_level: 2,
+                        website: 'https://example.com',
                         place_id: 'mock1'
                     },
                     {
-                        name: 'Kajsas Fisk',
-                        vicinity: 'Hötorgshallen, Stockholm',
+                        name: 'Lunchrestaurang City',
+                        vicinity: 'City, Stockholm',
                         rating: 4.2,
                         price_level: 2,
-                        website: 'https://kajsasfisk.se',
+                        website: 'https://example.com',
                         place_id: 'mock2'
                     },
                     {
-                        name: 'Vapiano',
-                        vicinity: 'Regeringsgatan 28, Stockholm',
-                        rating: 3.8,
-                        price_level: 2,
-                        website: 'https://vapiano.se',
+                        name: 'Snabbmat Nära Kontoret',
+                        vicinity: 'Kontorsområdet, Stockholm',
+                        rating: 3.9,
+                        price_level: 1,
+                        website: 'https://example.com',
                         place_id: 'mock3'
                     }
                 ];
@@ -377,15 +456,27 @@
                     elements.resultsContent.innerHTML = html;
                 }
             }
-        });
 
-        // Initiera Google Maps API
-        function initMap() {
-            console.log('Google Maps API loaded');
-        }
+            // Ladda Google Maps API om nyckel finns
+            function loadGoogleMapsAPI() {
+                const apiKey = getApiKeyFromCookie();
+                if (apiKey && !window.google) {
+                    const script = document.createElement('script');
+                    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places&callback=initMap`;
+                    script.async = true;
+                    script.defer = true;
+                    document.head.appendChild(script);
+                }
+            }
+
+            // Initiera Google Maps API
+            window.initMap = function() {
+                console.log('Google Maps API loaded');
+            };
+
+            // Ladda API vid start
+            loadGoogleMapsAPI();
+        });
     </script>
-    
-    <!-- Ladda Google Maps API -->
-    <script src="https://maps.googleapis.com/maps/api/js?key=&libraries=places&callback=initMap" async defer></script>
 </body>
 </html>
