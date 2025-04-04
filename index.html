@@ -79,18 +79,26 @@
         }
         .actions {
             margin-top: 15px;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
         }
-        .actions a {
-            display: inline-block;
+        .actions a, .actions button {
             padding: 8px 12px;
             background: #4285f4;
             color: white;
             text-decoration: none;
             border-radius: 4px;
-            margin-right: 10px;
+            border: none;
+            cursor: pointer;
+            font-size: 14px;
         }
-        .actions a:hover {
+        .actions a:hover, .actions button:hover {
             background: #3367d6;
+        }
+        .distance {
+            font-weight: bold;
+            color: #5f6368;
         }
         .api-key-form {
             background: #e8f0fe;
@@ -230,6 +238,7 @@
                     saveApiKeyToCookie(apiKey);
                     elements.apiKeyForm.style.display = 'none';
                     showMessage('API-nyckel sparad!');
+                    loadGoogleMapsAPI();
                 } else {
                     showError('Vänligen ange en giltig API-nyckel');
                 }
@@ -278,13 +287,36 @@
             elements.searchBtn.addEventListener('click', () => searchRestaurants(false));
             elements.randomBtn.addEventListener('click', () => searchRestaurants(true));
 
+            // Beräkna avstånd mellan två koordinater (Haversine formel)
+            function calculateDistance(lat1, lon1, lat2, lon2) {
+                const R = 6371; // Jordens radie i km
+                const dLat = (lat2 - lat1) * Math.PI / 180;
+                const dLon = (lon2 - lon1) * Math.PI / 180;
+                const a = 
+                    Math.sin(dLat/2) * Math.sin(dLat/2) +
+                    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
+                    Math.sin(dLon/2) * Math.sin(dLon/2);
+                const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+                const distance = R * c; // Avstånd i km
+                return distance;
+            }
+
+            // Formatera avstånd
+            function formatDistance(distance) {
+                if (distance < 1) {
+                    return `${Math.round(distance * 1000)} meter`;
+                } else {
+                    return `${distance.toFixed(1)} km`;
+                }
+            }
+
             // Huvudfunktion för att söka restauranger
             async function searchRestaurants(isRandom) {
                 try {
                     elements.loading.style.display = 'block';
                     elements.resultsContent.innerHTML = '';
                     
-                    const [lat, lng] = elements.area.value.split(',').map(Number);
+                    const [originLat, originLng] = elements.area.value.split(',').map(Number);
                     const radius = parseInt(elements.radius.value);
                     const minRating = parseFloat(elements.minRating.value);
                     const maxPrice = parseInt(elements.maxPrice.value);
@@ -294,7 +326,16 @@
                     
                     // Försök hämta riktig data om API-nyckel finns
                     if (apiKey && window.google && window.google.maps && window.google.maps.places) {
-                        restaurants = await getRealRestaurants(lat, lng, radius);
+                        restaurants = await getRealRestaurants(originLat, originLng, radius);
+                        
+                        // Beräkna avstånd för varje restaurang
+                        restaurants.forEach(restaurant => {
+                            if (restaurant.geometry && restaurant.geometry.location) {
+                                const destLat = restaurant.geometry.location.lat();
+                                const destLng = restaurant.geometry.location.lng();
+                                restaurant.distance = calculateDistance(originLat, originLng, destLat, destLng);
+                            }
+                        });
                     } else if (!apiKey) {
                         showError('Ingen API-nyckel hittades. Visar exempeldata.');
                     } else {
@@ -317,15 +358,20 @@
                         const randomIndex = Math.floor(Math.random() * filtered.length);
                         const place = filtered[randomIndex];
                         const details = await getPlaceDetails(place.place_id);
-                        displayRestaurants([details], true);
+                        displayRestaurants([details], true, originLat, originLng);
                     } else {
-                        displayRestaurants(filtered, false);
+                        displayRestaurants(filtered, false, originLat, originLng);
                     }
                 } catch (error) {
                     console.error('Error searching restaurants:', error);
                     // Fallback till mockdata
                     const mockData = getMockRestaurants();
-                    displayRestaurants(mockData, isRandom);
+                    // Beräkna avstånd för mockdata
+                    mockData.forEach(restaurant => {
+                        // Slumpmässigt avstånd mellan 0.1 och 1.5 km för mockdata
+                        restaurant.distance = 0.1 + Math.random() * 1.4;
+                    });
+                    displayRestaurants(mockData, isRandom, originLat, originLng);
                     if (!getApiKeyFromCookie()) {
                         elements.apiKeyForm.style.display = 'block';
                     }
@@ -362,7 +408,7 @@
                     
                     service.getDetails({
                         placeId: placeId,
-                        fields: ['name', 'vicinity', 'rating', 'price_level', 'website', 'place_id']
+                        fields: ['name', 'vicinity', 'rating', 'price_level', 'website', 'place_id', 'geometry']
                     }, (place, status) => {
                         if (status === google.maps.places.PlacesServiceStatus.OK) {
                             resolve(place);
@@ -382,7 +428,13 @@
                         rating: 4.5,
                         price_level: 2,
                         website: 'https://example.com',
-                        place_id: 'mock1'
+                        place_id: 'mock1',
+                        geometry: {
+                            location: {
+                                lat: () => 59.331 + (Math.random() * 0.01 - 0.005),
+                                lng: () => 18.058 + (Math.random() * 0.01 - 0.005)
+                            }
+                        }
                     },
                     {
                         name: 'Lunchrestaurang City',
@@ -390,7 +442,13 @@
                         rating: 4.2,
                         price_level: 2,
                         website: 'https://example.com',
-                        place_id: 'mock2'
+                        place_id: 'mock2',
+                        geometry: {
+                            location: {
+                                lat: () => 59.332 + (Math.random() * 0.01 - 0.005),
+                                lng: () => 18.063 + (Math.random() * 0.01 - 0.005)
+                            }
+                        }
                     },
                     {
                         name: 'Snabbmat Nära Kontoret',
@@ -398,13 +456,19 @@
                         rating: 3.9,
                         price_level: 1,
                         website: 'https://example.com',
-                        place_id: 'mock3'
+                        place_id: 'mock3',
+                        geometry: {
+                            location: {
+                                lat: () => 59.330 + (Math.random() * 0.01 - 0.005),
+                                lng: () => 18.055 + (Math.random() * 0.01 - 0.005)
+                            }
+                        }
                     }
                 ];
             }
 
             // Visa restauranger i UI
-            function displayRestaurants(restaurants, isRandom) {
+            function displayRestaurants(restaurants, isRandom, originLat, originLng) {
                 if (restaurants.length === 0) {
                     elements.resultsContent.innerHTML = '<p>Inga restauranger hittades med de valda filtren.</p>';
                     return;
@@ -412,10 +476,14 @@
                 
                 if (isRandom) {
                     const restaurant = restaurants[0];
+                    const distanceText = restaurant.distance ? 
+                        `<div class="info-item"><strong>Avstånd:</strong> <span class="distance">${formatDistance(restaurant.distance)}</span></div>` : '';
+                    
                     elements.resultsContent.innerHTML = `
                         <div class="restaurant">
                             <h2>Dagens lunchval!</h2>
                             <h3>${restaurant.name}</h3>
+                            ${distanceText}
                             <div class="info-item">
                                 <strong>Adress:</strong> ${restaurant.vicinity || 'Okänd adress'}
                             </div>
@@ -427,16 +495,24 @@
                             </div>
                             <div class="actions">
                                 <a href="https://www.google.com/maps?q=place_id:${restaurant.place_id}" target="_blank">Visa på karta</a>
-                                ${restaurant.website ? `<a href="${restaurant.website}" target="_blank">Besök hemsida</a>` : ''}
+                                ${restaurant.website ? `
+                                    <button onclick="window.open('${restaurant.website}', '_blank')">
+                                        Öppna webbplats
+                                    </button>
+                                ` : ''}
                             </div>
                         </div>
                     `;
                 } else {
                     let html = '<h2>Hittade restauranger:</h2>';
                     restaurants.forEach(restaurant => {
+                        const distanceText = restaurant.distance ? 
+                            `<div class="info-item"><strong>Avstånd:</strong> <span class="distance">${formatDistance(restaurant.distance)}</span></div>` : '';
+                        
                         html += `
                             <div class="restaurant">
                                 <h3>${restaurant.name}</h3>
+                                ${distanceText}
                                 <div class="info-item">
                                     <strong>Adress:</strong> ${restaurant.vicinity || 'Okänd adress'}
                                 </div>
@@ -448,7 +524,11 @@
                                 </div>
                                 <div class="actions">
                                     <a href="https://www.google.com/maps?q=place_id:${restaurant.place_id}" target="_blank">Visa på karta</a>
-                                    ${restaurant.website ? `<a href="${restaurant.website}" target="_blank">Besök hemsida</a>` : ''}
+                                    ${restaurant.website ? `
+                                        <button onclick="window.open('${restaurant.website}', '_blank')">
+                                            Öppna webbplats
+                                        </button>
+                                    ` : ''}
                                 </div>
                             </div>
                         `;
