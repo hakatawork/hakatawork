@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Lunchguide Stockholm</title>
     <style>
-        /* All CSS från tidigare förblir oförändrad */
+        /* All CSS förblir oförändrad */
         body {
             font-family: Arial, sans-serif;
             margin: 0;
@@ -381,22 +381,47 @@
                         keyword: 'lunch'
                     }, (results, status) => {
                         if (status === google.maps.places.PlacesServiceStatus.OK && results) {
-                            // Returnera grundläggande information direkt
-                            const basicResults = results.map(place => ({
-                                name: place.name,
-                                vicinity: place.vicinity,
-                                rating: place.rating,
-                                price_level: place.price_level,
-                                place_id: place.place_id,
-                                geometry: place.geometry,
-                                hasMenu: place.name.toLowerCase().includes('lunch')
-                            }));
-                            resolve(basicResults);
+                            // Hämta bilder och mer detaljer
+                            const detailedResults = results.map(place => {
+                                let photoUrl = '';
+                                if (place.photos && place.photos.length > 0) {
+                                    photoUrl = place.photos[0].getUrl({maxWidth: 400, maxHeight: 400});
+                                }
+                                
+                                return {
+                                    name: place.name,
+                                    vicinity: place.vicinity,
+                                    rating: place.rating,
+                                    price_level: place.price_level,
+                                    place_id: place.place_id,
+                                    photoUrl: photoUrl,
+                                    website: place.website || `https://www.google.com/search?q=${encodeURIComponent(place.name + ' Stockholm')}`,
+                                    hasMenu: place.name.toLowerCase().includes('lunch'),
+                                    distance: calculateDistance(lat, lng, place.geometry.location.lat(), place.geometry.location.lng())
+                                };
+                            });
+                            resolve(detailedResults);
                         } else {
                             reject(new Error(`API-fel: ${status}`));
                         }
                     });
                 });
+            }
+
+            // Beräkna avstånd mellan två punkter
+            function calculateDistance(lat1, lon1, lat2, lon2) {
+                const R = 6371; // Jordens radie i km
+                const dLat = (lat2 - lat1) * Math.PI / 180;
+                const dLon = (lon2 - lon1) * Math.PI / 180;
+                const a = 
+                    Math.sin(dLat/2) * Math.sin(dLat/2) +
+                    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
+                    Math.sin(dLon/2) * Math.sin(dLon/2);
+                const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+                const distance = R * c;
+                return distance < 1 ? 
+                    `${Math.round(distance * 1000)} meter` : 
+                    `${distance.toFixed(1)} km`;
             }
 
             // Visa restauranger
@@ -415,8 +440,15 @@
 
                     // Skapa meny-knapp om restaurangen har meny
                     const menuButton = restaurant.hasMenu ? `
-                        <button class="menu-btn" onclick="window.open('https://www.google.com/search?q=${encodeURIComponent(restaurant.name + ' lunchmeny')}', '_blank')">
+                        <button class="menu-btn" onclick="window.open('${restaurant.website ? restaurant.website + '/menu' : 'https://www.google.com/search?q=' + encodeURIComponent(restaurant.name + ' lunchmeny Stockholm')}', '_blank')">
                             Visa lunchmeny
+                        </button>
+                    ` : '';
+
+                    // Skapa hemsida-knapp
+                    const websiteButton = restaurant.website ? `
+                        <button onclick="window.open('${restaurant.website}', '_blank')">
+                            Öppna webbplats
                         </button>
                     ` : '';
 
@@ -434,6 +466,7 @@
                                     ${restaurant.place_id ? `
                                         <a href="https://www.google.com/maps?q=place_id:${restaurant.place_id}" target="_blank">Visa på karta</a>
                                     ` : ''}
+                                    ${websiteButton}
                                     ${menuButton}
                                 </div>
                             </div>
@@ -454,6 +487,7 @@
                         price_level: 3,
                         place_id: 'mock1',
                         photoUrl: 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=400&h=400&fit=crop',
+                        website: 'https://pelikan.se',
                         hasMenu: true,
                         distance: '0.5 km'
                     },
@@ -464,7 +498,8 @@
                         price_level: 2,
                         place_id: 'mock2',
                         photoUrl: 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=400&h=400&fit=crop',
-                        hasMenu: false,
+                        website: 'https://kajsasfisk.se',
+                        hasMenu: true,
                         distance: '0.8 km'
                     },
                     {
@@ -473,6 +508,8 @@
                         rating: 4.0,
                         price_level: 2,
                         place_id: 'mock3',
+                        photoUrl: 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=400&h=400&fit=crop',
+                        website: 'https://lunchsodra.example.com',
                         hasMenu: true,
                         distance: '1.2 km'
                     }
