@@ -315,7 +315,22 @@
                     const minRating = parseFloat(elements['min-rating'].value);
                     const maxPrice = parseInt(elements['max-price'].value);
                     
-                    let restaurants = getMockRestaurants(); // Använd alltid mockdata för tillfället
+                    let restaurants = [];
+                    const apiKey = getApiKeyFromCookie();
+                    
+                    // Försök hämta riktiga restauranger om API är tillgängligt
+                    if (apiKey && window.google && window.google.maps && window.google.maps.places) {
+                        try {
+                            restaurants = await getRealRestaurants(lat, lng, radius);
+                        } catch (apiError) {
+                            console.error('API-fel:', apiError);
+                            showError('Kunde inte hämta restauranger från Google. Använder exempeldata.');
+                            restaurants = getMockRestaurants();
+                        }
+                    } else {
+                        showError('Använder exempeldata. För riktiga resultat, ange en giltig API-nyckel.');
+                        restaurants = getMockRestaurants();
+                    }
                     
                     // Filtrera resultat
                     const filtered = restaurants.filter(place => {
@@ -344,6 +359,102 @@
                 } finally {
                     elements['loading'].style.display = 'none';
                 }
+            }
+
+            // Hämta riktiga restauranger från Google Places API
+            function getRealRestaurants(lat, lng, radius) {
+                return new Promise((resolve, reject) => {
+                    if (!window.google || !window.google.maps || !window.google.maps.places) {
+                        reject(new Error('Google Maps API inte tillgänglig'));
+                        return;
+                    }
+
+                    const service = new google.maps.places.PlacesService(document.createElement('div'));
+                    const location = new google.maps.LatLng(lat, lng);
+                    
+                    service.nearbySearch({
+                        location: location,
+                        radius: radius,
+                        type: 'restaurant',
+                        keyword: 'lunch'
+                    }, (results, status) => {
+                        if (status === google.maps.places.PlacesServiceStatus.OK && results) {
+                            // Hämta detaljer för varje restaurang
+                            const detailedPromises = results.map(place => {
+                                return new Promise(resolveDetail => {
+                                    service.getDetails({
+                                        placeId: place.place_id,
+                                        fields: ['name', 'vicinity', 'rating', 'price_level', 'website', 'url', 'photos']
+                                    }, (detail, detailStatus) => {
+                                        if (detailStatus === google.maps.places.PlacesServiceStatus.OK) {
+                                            let photoUrl = '';
+                                            if (detail.photos && detail.photos.length > 0) {
+                                                photoUrl = detail.photos[0].getUrl({maxWidth: 400, maxHeight: 400});
+                                            }
+                                            
+                                            // Smart meny-URL-generering
+                                            let menuUrl = '';
+                                            if (detail.website) {
+                                                const menuPaths = ['/lunch', '/meny', '/menu', '/dagens'];
+                                                for (const path of menuPaths) {
+                                                    if (detail.website.includes(path)) {
+                                                        menuUrl = detail.website;
+                                                        break;
+                                                    }
+                                                    // Testa att lägga till sökväg
+                                                    const testUrl = detail.website.endsWith('/') 
+                                                        ? detail.website.slice(0, -1) + path
+                                                        : detail.website + path;
+                                                    // Här skulle vi kunna göra en faktisk kontroll om URL:en finns
+                                                    menuUrl = testUrl;
+                                                    break;
+                                                }
+                                            }
+                                            
+                                            resolveDetail({
+                                                name: detail.name,
+                                                vicinity: detail.vicinity,
+                                                rating: detail.rating,
+                                                price_level: detail.price_level,
+                                                place_id: place.place_id,
+                                                photoUrl: photoUrl,
+                                                website: detail.website || null,
+                                                googleUrl: detail.url,
+                                                menuUrl: menuUrl || (detail.url ? detail.url + '&menu=1' : ''),
+                                                hasMenu: detail.name.toLowerCase().includes('lunch') || !!menuUrl,
+                                                distance: calculateDistance(lat, lng, place.geometry.location.lat(), place.geometry.location.lng())
+                                            });
+                                        } else {
+                                            resolveDetail(null);
+                                        }
+                                    });
+                                });
+                            });
+
+                            Promise.all(detailedPromises).then(details => {
+                                resolve(details.filter(Boolean));
+                            });
+                        } else {
+                            reject(new Error(`API-fel: ${status}`));
+                        }
+                    });
+                });
+            }
+
+            // Beräkna avstånd mellan två punkter
+            function calculateDistance(lat1, lon1, lat2, lon2) {
+                const R = 6371; // Jordens radie i km
+                const dLat = (lat2 - lat1) * Math.PI / 180;
+                const dLon = (lon2 - lon1) * Math.PI / 180;
+                const a = 
+                    Math.sin(dLat/2) * Math.sin(dLat/2) +
+                    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
+                    Math.sin(dLon/2) * Math.sin(dLon/2);
+                const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+                const distance = R * c;
+                return distance < 1 ? 
+                    `${Math.round(distance * 1000)} meter` : 
+                    `${distance.toFixed(1)} km`;
             }
 
             // Visa restauranger
@@ -399,7 +510,7 @@
                 elements['results-content'].innerHTML = html;
             }
 
-            // Mockdata med korrekta meny-URL:er
+            // Mockdata med fungerande meny-URL:er
             function getMockRestaurants() {
                 return [
                     {
