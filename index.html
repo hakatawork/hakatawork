@@ -1,37 +1,74 @@
 <!DOCTYPE html>
 <html lang="sv">
 <head>
-    <!-- Samma CSS som tidigare -->
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lunchguide Stockholm</title>
     <style>
-        /* ... befintlig CSS ... */
+        /* All CSS förblir oförändrad */
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .controls {
+            background: #f5f5f5;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        /* ... resten av CSS ... */
     </style>
 </head>
 <body>
-    <!-- Samma HTML-struktur som tidigare -->
     <div class="container">
-        <!-- ... befintlig HTML ... -->
+        <!-- Behåll samma HTML-struktur som tidigare -->
+        <h1>Lunchguide Stockholm</h1>
+        
+        <div class="api-key-form" id="api-key-form">
+            <h3>Google Maps API-nyckel</h3>
+            <p>För riktiga restaurangresultat, ange din Google Maps API-nyckel:</p>
+            <input type="text" id="api-key-input" placeholder="Ange din API-nyckel här">
+            <button id="save-api-key">Spara nyckel</button>
+            <p><small>Nyckeln sparas i en cookie och används endast lokalt i din webbläsare.</small></p>
+        </div>
+        
+        <!-- ... resten av HTML ... -->
     </div>
 
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            // Debug-loggning
+            // Debug-verktyg
             const debug = {
-                log: function(message) {
-                    const timestamp = new Date().toISOString();
-                    console.log(`[${timestamp}] ${message}`);
-                },
-                error: function(message) {
-                    const timestamp = new Date().toISOString();
-                    console.error(`[${timestamp}] ERROR: ${message}`);
-                }
+                log: (...args) => console.log('[DEBUG]', new Date().toISOString(), ...args),
+                error: (...args) => console.error('[ERROR]', new Date().toISOString(), ...args)
             };
 
             // Elementreferenser
             const elements = {
-                // ... befintliga elementreferenser ...
+                area: document.getElementById('area'),
+                radius: document.getElementById('radius'),
+                'radius-value': document.getElementById('radius-value'),
+                'min-rating': document.getElementById('min-rating'),
+                'min-rating-value': document.getElementById('min-rating-value'),
+                'max-price': document.getElementById('max-price'),
+                'max-price-value': document.getElementById('max-price-value'),
+                'search-btn': document.getElementById('search-btn'),
+                'random-btn': document.getElementById('random-btn'),
+                loading: document.getElementById('loading'),
+                'results-content': document.getElementById('results-content'),
+                'error-message': document.getElementById('error-message'),
+                'api-key-form': document.getElementById('api-key-form'),
+                'api-key-input': document.getElementById('api-key-input'),
+                'save-api-key': document.getElementById('save-api-key')
             };
 
-            // Visa felmeddelande med debug-log
+            // Visa felmeddelande
             function showError(message) {
                 debug.error(message);
                 elements['error-message'].textContent = message;
@@ -41,7 +78,7 @@
                 }, 5000);
             }
 
-            // Visa meddelande med debug-log
+            // Visa meddelande
             function showMessage(message) {
                 debug.log(message);
                 elements['error-message'].textContent = message;
@@ -52,6 +89,48 @@
                     elements['error-message'].style.display = 'none';
                 }, 3000);
             }
+
+            // Hämta API-nyckel från cookie
+            function getApiKeyFromCookie() {
+                const cookies = document.cookie.split(';');
+                for (const cookie of cookies) {
+                    const [name, value] = cookie.trim().split('=');
+                    if (name === 'google_maps_api_key') {
+                        return decodeURIComponent(value);
+                    }
+                }
+                return null;
+            }
+
+            // Spara API-nyckel i cookie
+            function saveApiKeyToCookie(key) {
+                const date = new Date();
+                date.setTime(date.getTime() + (30 * 24 * 60 * 60 * 1000));
+                document.cookie = `google_maps_api_key=${encodeURIComponent(key)}; expires=${date.toUTCString()}; path=/`;
+                debug.log('API-nyckel sparad i cookie');
+            }
+
+            // Initiera API-nyckel
+            const savedApiKey = getApiKeyFromCookie();
+            if (savedApiKey) {
+                elements['api-key-input'].value = savedApiKey;
+                elements['api-key-form'].style.display = 'none';
+                debug.log('Hittade sparad API-nyckel');
+                loadGoogleMapsAPI();
+            }
+
+            // Event listener för att spara API-nyckel
+            elements['save-api-key'].addEventListener('click', function() {
+                const apiKey = elements['api-key-input'].value.trim();
+                if (apiKey) {
+                    saveApiKeyToCookie(apiKey);
+                    elements['api-key-form'].style.display = 'none';
+                    showMessage('API-nyckel sparad! Laddar Google Maps API...');
+                    loadGoogleMapsAPI();
+                } else {
+                    showError('Vänligen ange en giltig API-nyckel');
+                }
+            });
 
             // Ladda Google Maps API med förbättrad loggning
             function loadGoogleMapsAPI() {
@@ -83,7 +162,7 @@
                 }
             }
 
-            // Förbättrad sökfunktion med detaljerad loggning
+            // Huvudfunktion för att söka restauranger med mer loggning
             async function searchRestaurants(isRandom) {
                 try {
                     debug.log('Startar restaurangsökning...');
@@ -100,6 +179,7 @@
                     let restaurants = [];
                     const apiKey = getApiKeyFromCookie();
                     
+                    // Försök hämta riktiga restauranger om API är tillgängligt
                     if (apiKey && window.google && window.google.maps && window.google.maps.places) {
                         debug.log('Försöker hämta riktiga restauranger från Google Places API');
                         try {
@@ -154,10 +234,10 @@
                 }
             }
 
-            // Förbättrad funktion för riktiga restauranger med loggning
+            // Hämta riktiga restauranger från Google Places API
             function getRealRestaurants(lat, lng, radius) {
                 return new Promise((resolve, reject) => {
-                    if (!window.google || !window.google.maps || !window.google.maps.places) {
+                    if (!window.google?.maps?.places) {
                         const err = new Error('Google Maps API inte tillgänglig');
                         debug.error(err.message);
                         reject(err);
@@ -223,7 +303,21 @@
                     }
                 }
                 
-                // Skapa restaurangobjekt
+                // Smart meny-URL-generering
+                let menuUrl = '';
+                if (detail.website) {
+                    const menuPaths = ['/lunch', '/lunchmeny', '/lunch-menu', '/dagens', '/dagens-lunch'];
+                    for (const path of menuPaths) {
+                        if (detail.website.includes(path)) {
+                            menuUrl = detail.website;
+                            break;
+                        }
+                    }
+                    if (!menuUrl) {
+                        menuUrl = detail.website + '/lunch'; // Fallback
+                    }
+                }
+
                 return {
                     name: detail.name,
                     vicinity: detail.vicinity,
@@ -233,12 +327,29 @@
                     photoUrl: photoUrl,
                     website: detail.website || null,
                     googleUrl: detail.url,
-                    hasMenu: detail.name.toLowerCase().includes('lunch'),
+                    menuUrl: menuUrl || (detail.url ? detail.url + '&menu=1' : ''),
+                    hasMenu: detail.name.toLowerCase().includes('lunch') || !!menuUrl,
                     distance: calculateDistance(lat, lng, place.geometry.location.lat(), place.geometry.location.lng())
                 };
             }
 
-            // Visa restauranger med loggning
+            // Beräkna avstånd mellan två punkter
+            function calculateDistance(lat1, lon1, lat2, lon2) {
+                const R = 6371; // Jordens radie i km
+                const dLat = (lat2 - lat1) * Math.PI / 180;
+                const dLon = (lon2 - lon1) * Math.PI / 180;
+                const a = 
+                    Math.sin(dLat/2) * Math.sin(dLat/2) +
+                    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
+                    Math.sin(dLon/2) * Math.sin(dLon/2);
+                const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+                const distance = R * c;
+                return distance < 1 ? 
+                    `${Math.round(distance * 1000)} meter` : 
+                    `${distance.toFixed(1)} km`;
+            }
+
+            // Visa restauranger
             function displayRestaurants(restaurants, isRandom) {
                 if (!restaurants || restaurants.length === 0) {
                     debug.log('Inga restauranger att visa');
@@ -256,19 +367,14 @@
                         `<img src="${restaurant.photoUrl}" alt="${restaurant.name}" class="restaurant-image">` : 
                         '<div class="no-image">Ingen bild</div>';
 
-                    // Skapa meny-knapp
-                    const menuButton = restaurant.hasMenu ? `
-                        <button class="menu-btn" onclick="window.open('${
-                            restaurant.website ? 
-                                (restaurant.website.includes('menu') ? restaurant.website : restaurant.website + '/menu') : 
-                                (restaurant.googleUrl ? restaurant.googleUrl + '&menu=1' : 
-                                'https://www.google.com/search?q=' + encodeURIComponent(restaurant.name + ' lunchmeny Stockholm'))
-                        }', '_blank')">
-                            Visa lunchmeny
+                    // Skapa meny-knapp om meny finns
+                    const menuButton = restaurant.menuUrl ? `
+                        <button class="menu-btn" onclick="window.open('${restaurant.menuUrl}', '_blank')">
+                            ${restaurant.menuUrl.includes('lunch') ? 'Lunchmeny' : 'Meny'}
                         </button>
                     ` : '';
 
-                    // Skapa webbplatsknapp
+                    // Skapa webbplatsknapp ENDAST om riktig webbplats finns
                     const websiteButton = restaurant.website ? `
                         <button onclick="window.open('${restaurant.website}', '_blank')">
                             Besök webbplats
@@ -301,19 +407,72 @@
                 debug.log('Restauranger visas nu på sidan');
             }
 
-            // ... övriga funktioner (getMockRestaurants, calculateDistance etc) förblir oförändrade ...
-
-            // Initiera
-            debug.log('Initierar Lunchguide Stockholm');
-            const savedApiKey = getApiKeyFromCookie();
-            if (savedApiKey) {
-                elements['api-key-input'].value = savedApiKey;
-                elements['api-key-form'].style.display = 'none';
-                debug.log('Hittade sparad API-nyckel i cookies');
-                loadGoogleMapsAPI();
+            // Mockdata med fungerande länkar
+            function getMockRestaurants() {
+                debug.log('Använder mockdata');
+                return [
+                    {
+                        name: 'Restaurang Pelikan',
+                        vicinity: 'Blekingegatan 40, Stockholm',
+                        rating: 4.4,
+                        price_level: 3,
+                        place_id: 'mock1',
+                        photoUrl: 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=400&h=400&fit=crop',
+                        website: 'https://pelikan.se',
+                        menuUrl: 'https://pelikan.se/lunch',
+                        distance: '0.5 km'
+                    },
+                    {
+                        name: 'Kajsas Fisk',
+                        vicinity: 'Hötorgshallen, Stockholm',
+                        rating: 4.2,
+                        price_level: 2,
+                        place_id: 'mock2',
+                        photoUrl: 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=400&h=400&fit=crop',
+                        website: 'https://kajsasfisk.se',
+                        menuUrl: 'https://kajsasfisk.se/meny',
+                        distance: '0.8 km'
+                    },
+                    {
+                        name: 'Lunchrestaurang Södra',
+                        vicinity: 'Södermalm, Stockholm',
+                        rating: 4.0,
+                        price_level: 2,
+                        place_id: 'mock3',
+                        photoUrl: 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=400&h=400&fit=crop',
+                        website: 'https://lunchsodra.example.com',
+                        menuUrl: 'https://lunchsodra.example.com/dagens',
+                        distance: '1.2 km'
+                    }
+                ];
             }
 
-            // ... resten av initieringskoden ...
+            // Event listeners för knappar
+            elements['search-btn'].addEventListener('click', () => searchRestaurants(false));
+            elements['random-btn'].addEventListener('click', () => searchRestaurants(true));
+
+            // Initiera range-värden
+            elements['radius'].addEventListener('input', () => {
+                elements['radius-value'].textContent = elements['radius'].value;
+            });
+
+            elements['min-rating'].addEventListener('input', () => {
+                elements['min-rating-value'].textContent = elements['min-rating'].value;
+            });
+
+            elements['max-price'].addEventListener('input', () => {
+                const prices = ['1 ($)', '2 ($$)', '3 ($$$)', '4 ($$$$)'];
+                elements['max-price-value'].textContent = `${elements['max-price'].value} (${prices[elements['max-price'].value - 1]})`;
+            });
+
+            // Initial uppdatering av värden
+            elements['max-price'].dispatchEvent(new Event('input'));
+            elements['radius'].dispatchEvent(new Event('input'));
+            elements['min-rating'].dispatchEvent(new Event('input'));
+
+            // Visa mockdata direkt vid laddning
+            displayRestaurants(getMockRestaurants(), false);
+            debug.log('Initiering slutförd');
         });
     </script>
 </body>
