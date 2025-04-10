@@ -1,42 +1,368 @@
 <!DOCTYPE html>
 <html lang="sv">
 <head>
-    <!-- All CSS förblir oförändrad -->
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lunchguide Stockholm</title>
     <style>
-        body { font-family: Arial, sans-serif; margin: 0; padding: 20px; line-height: 1.6; }
-        .container { max-width: 800px; margin: 0 auto; }
-        .controls { background: #f5f5f5; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
-        .control-group { margin-bottom: 15px; }
-        label { display: block; margin-bottom: 5px; font-weight: bold; }
-        select, input[type="range"] { width: 100%; padding: 8px; margin-bottom: 10px; }
-        .buttons { display: flex; gap: 10px; margin-top: 20px; }
-        button { padding: 10px 15px; background: #4285f4; color: white; border: none; border-radius: 4px; cursor: pointer; flex: 1; }
-        button:hover { background: #3367d6; }
-        .loading { display: none; text-align: center; padding: 20px; }
-        .error { color: #d32f2f; background: #fde7e7; padding: 10px; border-radius: 4px; margin-bottom: 15px; display: none; }
-        .restaurant { border: 1px solid #ddd; padding: 15px; margin-bottom: 15px; border-radius: 8px; display: flex; gap: 15px; }
-        .restaurant-image-container { width: 150px; height: 150px; flex-shrink: 0; }
-        .restaurant-image { width: 100%; height: 100%; object-fit: cover; border-radius: 4px; }
-        .restaurant-info { flex: 1; }
-        .restaurant h3 { margin-top: 0; margin-bottom: 10px; }
-        .info-item { margin-bottom: 8px; }
-        .actions { margin-top: 15px; display: flex; gap: 10px; flex-wrap: wrap; }
-        .actions a, .actions button { padding: 8px 12px; background: #4285f4; color: white; text-decoration: none; border-radius: 4px; border: none; cursor: pointer; font-size: 14px; }
-        .actions a:hover, .actions button:hover { background: #3367d6; }
-        .menu-btn { background: #34a853 !important; }
-        .menu-btn:hover { background: #2d8e47 !important; }
-        .distance { font-weight: bold; color: #5f6368; }
-        .no-image { width: 100%; height: 100%; background: #eee; display: flex; align-items: center; justify-content: center; color: #666; border-radius: 4px; }
-        .api-key-form { background: #e8f0fe; padding: 15px; border-radius: 8px; margin-bottom: 20px; }
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .controls {
+            background: #f5f5f5;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        .control-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        select, input[type="range"] {
+            width: 100%;
+            padding: 8px;
+            margin-bottom: 10px;
+        }
+        .buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        button {
+            padding: 10px 15px;
+            background: #4285f4;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            flex: 1;
+        }
+        button:hover {
+            background: #3367d6;
+        }
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+        .error {
+            color: #d32f2f;
+            background: #fde7e7;
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 15px;
+            display: none;
+        }
+        .restaurant {
+            border: 1px solid #ddd;
+            padding: 15px;
+            margin-bottom: 15px;
+            border-radius: 8px;
+            display: flex;
+            gap: 15px;
+        }
+        .restaurant-image-container {
+            width: 150px;
+            height: 150px;
+            flex-shrink: 0;
+        }
+        .restaurant-image {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            border-radius: 4px;
+        }
+        .restaurant-info {
+            flex: 1;
+        }
+        .restaurant h3 {
+            margin-top: 0;
+            margin-bottom: 10px;
+        }
+        .info-item {
+            margin-bottom: 8px;
+        }
+        .actions {
+            margin-top: 15px;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .actions a, .actions button {
+            padding: 8px 12px;
+            background: #4285f4;
+            color: white;
+            text-decoration: none;
+            border-radius: 4px;
+            border: none;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .actions a:hover, .actions button:hover {
+            background: #3367d6;
+        }
+        .menu-btn {
+            background: #34a853 !important;
+        }
+        .menu-btn:hover {
+            background: #2d8e47 !important;
+        }
+        .distance {
+            font-weight: bold;
+            color: #5f6368;
+        }
+        .no-image {
+            width: 100%;
+            height: 100%;
+            background: #eee;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #666;
+            border-radius: 4px;
+        }
+        .api-key-form {
+            background: #e8f0fe;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
     </style>
 </head>
 <body>
-    <!-- All HTML förblir oförändrad fram till script-delen -->
+    <div class="container">
+        <h1>Lunchguide Stockholm</h1>
+        
+        <div class="api-key-form" id="api-key-form">
+            <h3>Google Maps API-nyckel</h3>
+            <p>För riktiga restaurangresultat, ange din Google Maps API-nyckel:</p>
+            <input type="text" id="api-key-input" placeholder="Ange din API-nyckel här">
+            <button id="save-api-key">Spara nyckel</button>
+            <p><small>Nyckeln sparas i en cookie och används endast lokalt i din webbläsare.</small></p>
+        </div>
+        
+        <div class="controls">
+            <div class="error" id="error-message"></div>
+            
+            <div class="control-group">
+                <label for="area">Område:</label>
+                <select id="area">
+                    <option value="59.33149337768555,18.05849266052246">Kontoret</option>
+                    <option value="59.3326,18.0632">Sergels torg</option>
+                    <option value="59.3258,18.0706">Gamla stan</option>
+                    <option value="59.3389,18.0883">Östermalm</option>
+                    <option value="59.3307,18.0415">Kungsholmen</option>
+                    <option value="59.3151,18.0689">Södermalm</option>
+                </select>
+            </div>
+            
+            <div class="control-group">
+                <label for="radius">
+                    Sökområde (meter):
+                    <span class="range-value" id="radius-value">500</span>
+                </label>
+                <input type="range" id="radius" min="100" max="2000" step="100" value="500">
+            </div>
+            
+            <div class="control-group">
+                <label for="min-rating">
+                    Minsta betyg:
+                    <span class="range-value" id="min-rating-value">3.0</span>
+                </label>
+                <input type="range" id="min-rating" min="0" max="5" step="0.1" value="3.0">
+            </div>
+            
+            <div class="control-group">
+                <label for="max-price">
+                    Max prisnivå:
+                    <span class="range-value" id="max-price-value">3 ($$$)</span>
+                </label>
+                <input type="range" id="max-price" min="1" max="4" step="1" value="3">
+            </div>
+            
+            <div class="buttons">
+                <button id="search-btn">Sök restauranger</button>
+                <button id="random-btn">Slumpa restaurang</button>
+            </div>
+        </div>
+        
+        <div class="loading" id="loading">
+            <p>Hämtar restauranger...</p>
+        </div>
+        
+        <div class="results" id="results">
+            <div id="results-content">
+                <p>Välj inställningar och klicka på "Sök restauranger" eller "Slumpa restaurang" för att börja.</p>
+            </div>
+        </div>
+    </div>
+
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            // [Tidigare kod för elementreferenser och hjälpfunktioner förblir oförändrad]
+            // Elementreferenser
+            const elements = {
+                area: document.getElementById('area'),
+                radius: document.getElementById('radius'),
+                'radius-value': document.getElementById('radius-value'),
+                'min-rating': document.getElementById('min-rating'),
+                'min-rating-value': document.getElementById('min-rating-value'),
+                'max-price': document.getElementById('max-price'),
+                'max-price-value': document.getElementById('max-price-value'),
+                'search-btn': document.getElementById('search-btn'),
+                'random-btn': document.getElementById('random-btn'),
+                loading: document.getElementById('loading'),
+                'results-content': document.getElementById('results-content'),
+                'error-message': document.getElementById('error-message'),
+                'api-key-form': document.getElementById('api-key-form'),
+                'api-key-input': document.getElementById('api-key-input'),
+                'save-api-key': document.getElementById('save-api-key')
+            };
 
-            // Uppdaterad getRealRestaurants-funktion
+            // Visa felmeddelande
+            function showError(message) {
+                elements['error-message'].textContent = message;
+                elements['error-message'].style.display = 'block';
+                setTimeout(() => {
+                    elements['error-message'].style.display = 'none';
+                }, 5000);
+            }
+
+            // Visa meddelande
+            function showMessage(message) {
+                elements['error-message'].textContent = message;
+                elements['error-message'].style.color = '#388e3c';
+                elements['error-message'].style.backgroundColor = '#e8f5e9';
+                elements['error-message'].style.display = 'block';
+                setTimeout(() => {
+                    elements['error-message'].style.display = 'none';
+                }, 3000);
+            }
+
+            // Hämta API-nyckel från cookie
+            function getApiKeyFromCookie() {
+                const cookies = document.cookie.split(';');
+                for (const cookie of cookies) {
+                    const [name, value] = cookie.trim().split('=');
+                    if (name === 'google_maps_api_key') {
+                        return decodeURIComponent(value);
+                    }
+                }
+                return null;
+            }
+
+            // Spara API-nyckel i cookie
+            function saveApiKeyToCookie(key) {
+                const date = new Date();
+                date.setTime(date.getTime() + (30 * 24 * 60 * 60 * 1000));
+                document.cookie = `google_maps_api_key=${encodeURIComponent(key)}; expires=${date.toUTCString()}; path=/`;
+            }
+
+            // Initiera API-nyckel
+            const savedApiKey = getApiKeyFromCookie();
+            if (savedApiKey) {
+                elements['api-key-input'].value = savedApiKey;
+                elements['api-key-form'].style.display = 'none';
+                loadGoogleMapsAPI();
+            }
+
+            // Event listener för att spara API-nyckel
+            elements['save-api-key'].addEventListener('click', function() {
+                const apiKey = elements['api-key-input'].value.trim();
+                if (apiKey) {
+                    saveApiKeyToCookie(apiKey);
+                    elements['api-key-form'].style.display = 'none';
+                    showMessage('API-nyckel sparad! Laddar Google Maps API...');
+                    loadGoogleMapsAPI();
+                } else {
+                    showError('Vänligen ange en giltig API-nyckel');
+                }
+            });
+
+            // Ladda Google Maps API
+            function loadGoogleMapsAPI() {
+                const apiKey = getApiKeyFromCookie();
+                if (apiKey && !window.google) {
+                    const script = document.createElement('script');
+                    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places`;
+                    script.async = true;
+                    script.defer = true;
+                    script.onerror = function() {
+                        showError('Kunde inte ladda Google Maps API. Kontrollera din API-nyckel.');
+                    };
+                    document.head.appendChild(script);
+                }
+            }
+
+            // Huvudfunktion för att söka restauranger
+            async function searchRestaurants(isRandom) {
+                try {
+                    elements['loading'].style.display = 'block';
+                    elements['results-content'].innerHTML = '';
+                    
+                    const [lat, lng] = elements['area'].value.split(',').map(Number);
+                    const radius = parseInt(elements['radius'].value);
+                    const minRating = parseFloat(elements['min-rating'].value);
+                    const maxPrice = parseInt(elements['max-price'].value);
+                    
+                    let restaurants = [];
+                    const apiKey = getApiKeyFromCookie();
+                    
+                    // Försök hämta riktiga restauranger om API är tillgängligt
+                    if (apiKey && window.google && window.google.maps && window.google.maps.places) {
+                        try {
+                            restaurants = await getRealRestaurants(lat, lng, radius);
+                        } catch (apiError) {
+                            console.error('API-fel:', apiError);
+                            showError('Kunde inte hämta restauranger från Google. Använder exempeldata.');
+                            restaurants = getMockRestaurants();
+                        }
+                    } else {
+                        showError('Använder exempeldata. För riktiga resultat, ange en giltig API-nyckel.');
+                        restaurants = getMockRestaurants();
+                    }
+                    
+                    // Filtrera resultat
+                    const filtered = restaurants.filter(place => {
+                        const ratingOk = !place.rating || place.rating >= minRating;
+                        const priceOk = !place.price_level || place.price_level <= maxPrice;
+                        return ratingOk && priceOk;
+                    });
+                    
+                    if (filtered.length === 0) {
+                        showError('Inga restauranger matchade dina filter. Visar alla tillgängliga.');
+                        displayRestaurants(restaurants, isRandom);
+                        return;
+                    }
+                    
+                    // Visa resultat
+                    if (isRandom) {
+                        const randomIndex = Math.floor(Math.random() * filtered.length);
+                        displayRestaurants([filtered[randomIndex]], true);
+                    } else {
+                        displayRestaurants(filtered, false);
+                    }
+                } catch (error) {
+                    console.error('Error:', error);
+                    showError('Ett fel uppstod: ' + error.message);
+                    // Fallback till mockdata
+                    displayRestaurants(getMockRestaurants(), isRandom);
+                } finally {
+                    elements['loading'].style.display = 'none';
+                }
+            }
+
+            // Hämta riktiga restauranger från Google Places API
             function getRealRestaurants(lat, lng, radius) {
                 return new Promise((resolve, reject) => {
                     if (!window.google || !window.google.maps || !window.google.maps.places) {
@@ -74,10 +400,9 @@
                                                 price_level: detail.price_level,
                                                 place_id: place.place_id,
                                                 photoUrl: photoUrl,
-                                                website: detail.website || null, // Endast riktiga webbplatser
-                                                googleUrl: detail.url, // Länk till Google-sidan
-                                                hasMenu: detail.name.toLowerCase().includes('lunch') || 
-                                                        (detail.website && detail.website.includes('menu')),
+                                                website: detail.website || null,
+                                                googleUrl: detail.url,
+                                                hasMenu: detail.name.toLowerCase().includes('lunch'),
                                                 distance: calculateDistance(lat, lng, place.geometry.location.lat(), place.geometry.location.lng())
                                             });
                                         } else {
@@ -97,7 +422,23 @@
                 });
             }
 
-            // Uppdaterad displayRestaurants-funktion
+            // Beräkna avstånd mellan två punkter
+            function calculateDistance(lat1, lon1, lat2, lon2) {
+                const R = 6371; // Jordens radie i km
+                const dLat = (lat2 - lat1) * Math.PI / 180;
+                const dLon = (lon2 - lon1) * Math.PI / 180;
+                const a = 
+                    Math.sin(dLat/2) * Math.sin(dLat/2) +
+                    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
+                    Math.sin(dLon/2) * Math.sin(dLon/2);
+                const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+                const distance = R * c;
+                return distance < 1 ? 
+                    `${Math.round(distance * 1000)} meter` : 
+                    `${distance.toFixed(1)} km`;
+            }
+
+            // Visa restauranger
             function displayRestaurants(restaurants, isRandom) {
                 if (!restaurants || restaurants.length === 0) {
                     elements['results-content'].innerHTML = '<p>Inga restauranger hittades.</p>';
@@ -111,7 +452,7 @@
                         `<img src="${restaurant.photoUrl}" alt="${restaurant.name}" class="restaurant-image">` : 
                         '<div class="no-image">Ingen bild</div>';
 
-                    // Skapa meny-knapp (försök hitta meny på webbplats eller använd Google)
+                    // Skapa meny-knapp
                     const menuButton = restaurant.hasMenu ? `
                         <button class="menu-btn" onclick="window.open('${
                             restaurant.website ? 
@@ -155,7 +496,7 @@
                 elements['results-content'].innerHTML = html;
             }
 
-            // Uppdaterad mockdata med korrekta webbplatser och menyflaggor
+            // Mockdata
             function getMockRestaurants() {
                 return [
                     {
@@ -176,7 +517,7 @@
                         price_level: 2,
                         place_id: 'mock2',
                         photoUrl: 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=400&h=400&fit=crop',
-                        website: null, // Ingen webbplats
+                        website: null,
                         hasMenu: true,
                         distance: '0.8 km'
                     },
@@ -188,13 +529,37 @@
                         place_id: 'mock3',
                         photoUrl: 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=400&h=400&fit=crop',
                         website: 'https://lunchsodra.example.com',
-                        hasMenu: false, // Ingen meny
+                        hasMenu: false,
                         distance: '1.2 km'
                     }
                 ];
             }
 
-            // [Resten av den tidigare koden förblir oförändrad]
+            // Event listeners för knappar
+            elements['search-btn'].addEventListener('click', () => searchRestaurants(false));
+            elements['random-btn'].addEventListener('click', () => searchRestaurants(true));
+
+            // Initiera range-värden
+            elements['radius'].addEventListener('input', () => {
+                elements['radius-value'].textContent = elements['radius'].value;
+            });
+
+            elements['min-rating'].addEventListener('input', () => {
+                elements['min-rating-value'].textContent = elements['min-rating'].value;
+            });
+
+            elements['max-price'].addEventListener('input', () => {
+                const prices = ['1 ($)', '2 ($$)', '3 ($$$)', '4 ($$$$)'];
+                elements['max-price-value'].textContent = `${elements['max-price'].value} (${prices[elements['max-price'].value - 1]})`;
+            });
+
+            // Initial uppdatering av värden
+            elements['max-price'].dispatchEvent(new Event('input'));
+            elements['radius'].dispatchEvent(new Event('input'));
+            elements['min-rating'].dispatchEvent(new Event('input'));
+
+            // Visa mockdata direkt vid laddning
+            displayRestaurants(getMockRestaurants(), false);
         });
     </script>
 </body>
