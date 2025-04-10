@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Lunchguide Stockholm</title>
     <style>
-        /* All CSS förblir oförändrad */
         body {
             font-family: Arial, sans-serif;
             margin: 0;
@@ -22,13 +21,97 @@
             border-radius: 8px;
             margin-bottom: 20px;
         }
-        /* ... resten av CSS ... */
+        .control-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        select, input[type="range"] {
+            width: 100%;
+            max-width: 300px;
+        }
+        button {
+            background: #4285f4;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 10px;
+        }
+        button:hover {
+            background: #3367d6;
+        }
+        #loading {
+            display: none;
+            margin: 20px 0;
+        }
+        .restaurant {
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 20px;
+            display: flex;
+        }
+        .restaurant-image-container {
+            width: 150px;
+            margin-right: 20px;
+        }
+        .restaurant-image {
+            width: 100%;
+            height: auto;
+            border-radius: 4px;
+        }
+        .no-image {
+            width: 150px;
+            height: 150px;
+            background: #eee;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 4px;
+        }
+        .restaurant-info {
+            flex: 1;
+        }
+        .actions {
+            margin-top: 10px;
+        }
+        .actions a, .actions button {
+            display: inline-block;
+            margin-right: 10px;
+            text-decoration: none;
+            color: white;
+            background: #4285f4;
+            padding: 5px 10px;
+            border-radius: 4px;
+        }
+        .menu-btn {
+            background: #34a853 !important;
+        }
+        #error-message {
+            display: none;
+            padding: 10px;
+            margin-bottom: 20px;
+            border-radius: 4px;
+            background: #fce8e6;
+            color: #d93025;
+        }
+        .value-display {
+            display: inline-block;
+            min-width: 100px;
+            margin-left: 10px;
+        }
     </style>
 </head>
 <body>
     <div class="container">
-        <!-- Behåll samma HTML-struktur som tidigare -->
         <h1>Lunchguide Stockholm</h1>
+        
+        <div id="error-message"></div>
         
         <div class="api-key-form" id="api-key-form">
             <h3>Google Maps API-nyckel</h3>
@@ -38,7 +121,41 @@
             <p><small>Nyckeln sparas i en cookie och används endast lokalt i din webbläsare.</small></p>
         </div>
         
-        <!-- ... resten av HTML ... -->
+        <div class="controls">
+            <div class="control-group">
+                <label for="area">Område:</label>
+                <select id="area">
+                    <option value="59.3293,18.0686">Stockholm City</option>
+                    <option value="59.3151,18.0823">Södermalm</option>
+                    <option value="59.3470,18.0766">Östermalm</option>
+                    <option value="59.3406,18.0218">Kungsholmen</option>
+                </select>
+            </div>
+            
+            <div class="control-group">
+                <label for="radius">Sökområde: <span id="radius-value" class="value-display">500</span> meter</label>
+                <input type="range" id="radius" min="100" max="2000" step="100" value="500">
+            </div>
+            
+            <div class="control-group">
+                <label for="min-rating">Minsta betyg: <span id="min-rating-value" class="value-display">3.0</span></label>
+                <input type="range" id="min-rating" min="1" max="5" step="0.1" value="3.0">
+            </div>
+            
+            <div class="control-group">
+                <label for="max-price">Max prisnivå: <span id="max-price-value" class="value-display">3 ($$$)</span></label>
+                <input type="range" id="max-price" min="1" max="4" step="1" value="3">
+            </div>
+            
+            <div class="control-group">
+                <button id="search-btn">Sök restauranger</button>
+                <button id="random-btn">Slumpa lunch</button>
+            </div>
+        </div>
+        
+        <div id="loading">Söker restauranger...</div>
+        
+        <div id="results-content"></div>
     </div>
 
     <script>
@@ -49,7 +166,7 @@
                 error: (...args) => console.error('[ERROR]', new Date().toISOString(), ...args)
             };
 
-            // Elementreferenser
+            // Elementreferenser med felhantering
             const elements = {
                 area: document.getElementById('area'),
                 radius: document.getElementById('radius'),
@@ -68,26 +185,37 @@
                 'save-api-key': document.getElementById('save-api-key')
             };
 
+            // Kontrollera att alla element finns
+            for (const [key, element] of Object.entries(elements)) {
+                if (!element) {
+                    debug.error(`Element med ID ${key} hittades inte i DOM:en`);
+                }
+            }
+
             // Visa felmeddelande
             function showError(message) {
                 debug.error(message);
-                elements['error-message'].textContent = message;
-                elements['error-message'].style.display = 'block';
-                setTimeout(() => {
-                    elements['error-message'].style.display = 'none';
-                }, 5000);
+                if (elements['error-message']) {
+                    elements['error-message'].textContent = message;
+                    elements['error-message'].style.display = 'block';
+                    setTimeout(() => {
+                        elements['error-message'].style.display = 'none';
+                    }, 5000);
+                }
             }
 
             // Visa meddelande
             function showMessage(message) {
                 debug.log(message);
-                elements['error-message'].textContent = message;
-                elements['error-message'].style.color = '#388e3c';
-                elements['error-message'].style.backgroundColor = '#e8f5e9';
-                elements['error-message'].style.display = 'block';
-                setTimeout(() => {
-                    elements['error-message'].style.display = 'none';
-                }, 3000);
+                if (elements['error-message']) {
+                    elements['error-message'].textContent = message;
+                    elements['error-message'].style.color = '#388e3c';
+                    elements['error-message'].style.backgroundColor = '#e8f5e9';
+                    elements['error-message'].style.display = 'block';
+                    setTimeout(() => {
+                        elements['error-message'].style.display = 'none';
+                    }, 3000);
+                }
             }
 
             // Hämta API-nyckel från cookie
@@ -112,7 +240,7 @@
 
             // Initiera API-nyckel
             const savedApiKey = getApiKeyFromCookie();
-            if (savedApiKey) {
+            if (savedApiKey && elements['api-key-input'] && elements['api-key-form']) {
                 elements['api-key-input'].value = savedApiKey;
                 elements['api-key-form'].style.display = 'none';
                 debug.log('Hittade sparad API-nyckel');
@@ -120,17 +248,21 @@
             }
 
             // Event listener för att spara API-nyckel
-            elements['save-api-key'].addEventListener('click', function() {
-                const apiKey = elements['api-key-input'].value.trim();
-                if (apiKey) {
-                    saveApiKeyToCookie(apiKey);
-                    elements['api-key-form'].style.display = 'none';
-                    showMessage('API-nyckel sparad! Laddar Google Maps API...');
-                    loadGoogleMapsAPI();
-                } else {
-                    showError('Vänligen ange en giltig API-nyckel');
-                }
-            });
+            if (elements['save-api-key']) {
+                elements['save-api-key'].addEventListener('click', function() {
+                    const apiKey = elements['api-key-input'] ? elements['api-key-input'].value.trim() : '';
+                    if (apiKey) {
+                        saveApiKeyToCookie(apiKey);
+                        if (elements['api-key-form']) {
+                            elements['api-key-form'].style.display = 'none';
+                        }
+                        showMessage('API-nyckel sparad! Laddar Google Maps API...');
+                        loadGoogleMapsAPI();
+                    } else {
+                        showError('Vänligen ange en giltig API-nyckel');
+                    }
+                });
+            }
 
             // Ladda Google Maps API med förbättrad loggning
             function loadGoogleMapsAPI() {
@@ -166,13 +298,14 @@
             async function searchRestaurants(isRandom) {
                 try {
                     debug.log('Startar restaurangsökning...');
-                    elements['loading'].style.display = 'block';
-                    elements['results-content'].innerHTML = '';
+                    if (elements['loading']) elements['loading'].style.display = 'block';
+                    if (elements['results-content']) elements['results-content'].innerHTML = '';
                     
-                    const [lat, lng] = elements['area'].value.split(',').map(Number);
-                    const radius = parseInt(elements['radius'].value);
-                    const minRating = parseFloat(elements['min-rating'].value);
-                    const maxPrice = parseInt(elements['max-price'].value);
+                    const areaValue = elements['area'] ? elements['area'].value : '59.3293,18.0686';
+                    const [lat, lng] = areaValue.split(',').map(Number);
+                    const radius = elements['radius'] ? parseInt(elements['radius'].value) : 500;
+                    const minRating = elements['min-rating'] ? parseFloat(elements['min-rating'].value) : 3.0;
+                    const maxPrice = elements['max-price'] ? parseInt(elements['max-price'].value) : 3;
                     
                     debug.log(`Sökkriterier: Lat=${lat}, Lng=${lng}, Radius=${radius}m, MinRating=${minRating}, MaxPrice=${maxPrice}`);
                     
@@ -229,7 +362,7 @@
                     showError('Ett fel uppstod: ' + error.message);
                     displayRestaurants(getMockRestaurants(), isRandom);
                 } finally {
-                    elements['loading'].style.display = 'none';
+                    if (elements['loading']) elements['loading'].style.display = 'none';
                     debug.log('Sökning slutförd');
                 }
             }
@@ -351,9 +484,8 @@
 
             // Visa restauranger
             function displayRestaurants(restaurants, isRandom) {
-                if (!restaurants || restaurants.length === 0) {
+                if (!restaurants || restaurants.length === 0 || !elements['results-content']) {
                     debug.log('Inga restauranger att visa');
-                    elements['results-content'].innerHTML = '<p>Inga restauranger hittades.</p>';
                     return;
                 }
 
@@ -448,27 +580,37 @@
             }
 
             // Event listeners för knappar
-            elements['search-btn'].addEventListener('click', () => searchRestaurants(false));
-            elements['random-btn'].addEventListener('click', () => searchRestaurants(true));
+            if (elements['search-btn']) {
+                elements['search-btn'].addEventListener('click', () => searchRestaurants(false));
+            }
+            if (elements['random-btn']) {
+                elements['random-btn'].addEventListener('click', () => searchRestaurants(true));
+            }
 
             // Initiera range-värden
-            elements['radius'].addEventListener('input', () => {
-                elements['radius-value'].textContent = elements['radius'].value;
-            });
+            if (elements['radius'] && elements['radius-value']) {
+                elements['radius'].addEventListener('input', () => {
+                    elements['radius-value'].textContent = elements['radius'].value;
+                });
+            }
 
-            elements['min-rating'].addEventListener('input', () => {
-                elements['min-rating-value'].textContent = elements['min-rating'].value;
-            });
+            if (elements['min-rating'] && elements['min-rating-value']) {
+                elements['min-rating'].addEventListener('input', () => {
+                    elements['min-rating-value'].textContent = elements['min-rating'].value;
+                });
+            }
 
-            elements['max-price'].addEventListener('input', () => {
-                const prices = ['1 ($)', '2 ($$)', '3 ($$$)', '4 ($$$$)'];
-                elements['max-price-value'].textContent = `${elements['max-price'].value} (${prices[elements['max-price'].value - 1]})`;
-            });
+            if (elements['max-price'] && elements['max-price-value']) {
+                elements['max-price'].addEventListener('input', () => {
+                    const prices = ['1 ($)', '2 ($$)', '3 ($$$)', '4 ($$$$)'];
+                    elements['max-price-value'].textContent = `${elements['max-price'].value} (${prices[elements['max-price'].value - 1]})`;
+                });
+            }
 
             // Initial uppdatering av värden
-            elements['max-price'].dispatchEvent(new Event('input'));
-            elements['radius'].dispatchEvent(new Event('input'));
-            elements['min-rating'].dispatchEvent(new Event('input'));
+            if (elements['max-price']) elements['max-price'].dispatchEvent(new Event('input'));
+            if (elements['radius']) elements['radius'].dispatchEvent(new Event('input'));
+            if (elements['min-rating']) elements['min-rating'].dispatchEvent(new Event('input'));
 
             // Visa mockdata direkt vid laddning
             displayRestaurants(getMockRestaurants(), false);
